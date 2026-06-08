@@ -15,11 +15,11 @@ export default function RootLayout({
       className={`${spaceGrotesk.variable} ${jetbrainsMono.variable} ${hankenGrotesk.variable}`}
     >
       <body
-        className={`${hankenGrotesk.className} bg-[#121314] text-white antialiased`}
+        className={`${hankenGrotesk.className} bg-surface text-foreground antialiased`}
       >
         <ClerkProvider>
           <Navbar />
-          <main className="pt-[72px]">{children}</main>
+          <main className="pt-header">{children}</main>
           <SpeedInsights />
         </ClerkProvider>
       </body>
