@@ -28,14 +28,16 @@ export function PreferenceForm({
   onChange,
   showOptionalNeeds = true,
 }: PreferenceFormProps) {
-  function toggleArrayValue<T extends string>(
-    field: keyof Pick<
+  function toggleArrayValue<
+    K extends keyof Pick<
       PreferenceFormValues,
       "interests" | "mobilityNeeds" | "dietaryNeeds" | "inclusionNeeds"
     >,
-    value: T,
+  >(
+    field: K,
+    value: PreferenceFormValues[K][number],
   ) {
-    const current = values[field] as T[];
+    const current = values[field] as PreferenceFormValues[K][number][];
     const next = current.includes(value)
       ? current.filter((item) => item !== value)
       : [...current, value];
