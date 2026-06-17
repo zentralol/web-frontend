@@ -7,6 +7,7 @@ import {
   Navigation as NavIcon,
   MessageSquare,
   BarChart3,
+  Settings,
 } from "lucide-react";
 import {
   Show,
@@ -84,6 +85,18 @@ export default function Navbar() {
             </SignUpButton>
           </Show>
           <Show when="signed-in">
+            <Link
+              href="/settings"
+              aria-label="Settings"
+              className={`${spaceGrotesk.className} flex items-center gap-1.5 px-3 py-2 text-[11px] font-bold uppercase tracking-widest transition-colors duration-150 ${
+                pathname === "/settings"
+                  ? "text-accent"
+                  : "text-white/60 hover:text-accent"
+              }`}
+            >
+              <Settings className="h-3.5 w-3.5" aria-hidden="true" />
+              Settings
+            </Link>
             <UserButton
               appearance={{
                 elements: {
