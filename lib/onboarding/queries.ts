@@ -33,12 +33,17 @@ export async function saveOnboardingPreferences(
   values: PreferenceFormValues,
   onboardingCompleted: boolean,
 ): Promise<UserPreferences> {
+  if (!userId) {
+    throw new Error("Unauthorized");
+  }
+
   const payload = preferencesToRow(userId, values, onboardingCompleted);
 
   const { data, error } = await supabase
     .from("onboarding_preferences")
     .upsert(payload, { onConflict: "user_id" })
     .select("*")
+    .eq("user_id", userId)
     .single();
 
   if (error) {

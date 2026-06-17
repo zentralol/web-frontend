@@ -7,7 +7,8 @@ import {
   getOnboardingPreferences,
   saveOnboardingPreferences,
 } from "./queries";
-import type { PreferenceFormValues, UserPreferences } from "./types";
+import type { UserPreferences } from "./types";
+import { parsePreferenceFormValues } from "./validation";
 
 async function requireUserId() {
   const { userId } = await auth();
@@ -24,9 +25,10 @@ export async function fetchPreferencesAction(): Promise<UserPreferences | null> 
 }
 
 export async function completeOnboardingAction(
-  values: PreferenceFormValues,
+  input: unknown,
 ): Promise<UserPreferences> {
   const userId = await requireUserId();
+  const values = parsePreferenceFormValues(input, { requireInterests: true });
   const supabase = await createServerSupabaseClient();
   const result = await saveOnboardingPreferences(
     supabase,
@@ -42,9 +44,10 @@ export async function completeOnboardingAction(
 }
 
 export async function updatePreferencesAction(
-  values: PreferenceFormValues,
+  input: unknown,
 ): Promise<UserPreferences> {
   const userId = await requireUserId();
+  const values = parsePreferenceFormValues(input, { requireInterests: true });
   const supabase = await createServerSupabaseClient();
   const existing = await getOnboardingPreferences(supabase, userId);
 

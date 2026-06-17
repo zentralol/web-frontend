@@ -7,6 +7,7 @@ import type {
   PreferenceFormValues,
   UserPreferences,
 } from "./types";
+import { preferenceAllowlists } from "./validation";
 
 const crowdToDb: Record<CrowdTolerance, "avoid" | "moderate" | "dont_mind"> = {
   avoid: "avoid",
@@ -75,15 +76,32 @@ const validInclusionNeeds = new Set<string>([
   ...Object.keys(inclusionSnakeToCamel),
 ]);
 
-function sanitizeArray(values: unknown): string[] {
+function sanitizeArray(values: unknown, allowed?: Set<string>): string[] {
   if (!Array.isArray(values)) {
     return [];
   }
 
-  return values.filter(
-    (value): value is string =>
-      typeof value === "string" && value.length > 0,
-  );
+  const result: string[] = [];
+  const seen = new Set<string>();
+
+  for (const value of values) {
+    if (typeof value !== "string" || value.length === 0) {
+      continue;
+    }
+
+    if (allowed && !allowed.has(value)) {
+      continue;
+    }
+
+    if (seen.has(value)) {
+      continue;
+    }
+
+    seen.add(value);
+    result.push(value);
+  }
+
+  return result;
 }
 
 function mapMobilityFromDb(value: string): MobilityNeed | null {
@@ -136,15 +154,33 @@ export function preferencesToRow(
   values: PreferenceFormValues,
   onboardingCompleted: boolean,
 ) {
+  const crowdTolerance = crowdToDb[values.crowdTolerance];
+
+  if (!crowdTolerance) {
+    throw new Error("Invalid preferences");
+  }
+
   return {
     user_id: userId,
     travel_pace: values.travelPace,
-    interests: sanitizeArray(values.interests),
+    interests: sanitizeArray(
+      values.interests,
+      preferenceAllowlists.interests,
+    ),
     budget_range: values.budgetRange,
-    crowd_tolerance: crowdToDb[values.crowdTolerance],
-    mobility_needs: sanitizeArray(values.mobilityNeeds),
-    dietary_needs: sanitizeArray(values.dietaryNeeds),
-    inclusion_needs: sanitizeArray(values.inclusionNeeds),
+    crowd_tolerance: crowdTolerance,
+    mobility_needs: sanitizeArray(
+      values.mobilityNeeds,
+      preferenceAllowlists.mobilityNeeds,
+    ),
+    dietary_needs: sanitizeArray(
+      values.dietaryNeeds,
+      preferenceAllowlists.dietaryNeeds,
+    ),
+    inclusion_needs: sanitizeArray(
+      values.inclusionNeeds,
+      preferenceAllowlists.inclusionNeeds,
+    ),
     onboarding_completed: onboardingCompleted,
     updated_at: new Date().toISOString(),
   };
