@@ -100,7 +100,7 @@ export function OnboardingWizard() {
   }
 
   return (
-    <div className="mx-auto flex min-h-[calc(100vh-var(--header-height))] max-w-3xl flex-col px-4 py-10 sm:px-6">
+    <div className="mx-auto flex min-h-[calc(100vh-var(--viewport-top))] max-w-3xl flex-col px-4 py-10 sm:px-6">
       <StepProgress step={step} totalSteps={TOTAL_STEPS} />
 
       <div className="mt-8 flex flex-1 flex-col">

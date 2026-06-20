@@ -95,7 +95,7 @@ export default function MapWorkspace() {
   }, []);
 
   return (
-    <div className="relative h-[calc(100vh-var(--header-height))] lg:flex">
+    <div className="relative h-[calc(100vh-var(--viewport-top))] lg:flex">
       <div
         className="absolute inset-0 lg:relative lg:min-w-0 lg:flex-1"
         onPointerDown={handleMapPointerDown}

@@ -160,13 +160,13 @@ export default function Navbar() {
         <>
           <button
             type="button"
-            className="fixed inset-0 top-header z-40 bg-black/60 lg:hidden"
+            className="fixed inset-0 top-[var(--viewport-top)] z-40 bg-black/60 lg:hidden"
             aria-label="Close menu"
             onClick={closeMenu}
           />
           <nav
             id="mobile-nav"
-            className="fixed inset-x-0 top-header z-50 border-b border-white/10 bg-surface px-4 py-4 sm:px-6 lg:hidden"
+            className="fixed inset-x-0 top-[var(--viewport-top)] z-50 border-b border-white/10 bg-surface px-4 py-4 sm:px-6 lg:hidden"
             aria-label="Main"
           >
             <ul className="space-y-1">
