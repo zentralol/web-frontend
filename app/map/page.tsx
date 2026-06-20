@@ -1,5 +1,5 @@
-export default function map() {
-    return (
-        <div> Map </div>
-    )
+import MapWorkspace from "@/components/map/MapWorkspace";
+
+export default function MapPage() {
+  return <MapWorkspace />;
 }
