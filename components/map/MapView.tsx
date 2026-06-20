@@ -20,13 +20,13 @@ type PendingClick = {
 
 type MapViewProps = {
   onLoadingStart: (lat: number, lng: number) => void;
-  onInteractionCancel: () => void;
+  onMapDragStart: () => void;
   onSelectionChange: (selection: LocationSelectionState) => void;
 };
 
 function MapContent({
   onLoadingStart,
-  onInteractionCancel,
+  onMapDragStart,
   onSelectionChange,
 }: MapViewProps) {
   const placesLib = useMapsLibrary("places");
@@ -84,18 +84,13 @@ function MapContent({
     };
   }, [pendingClick, placesLib, geocodingLib, onSelectionChange]);
 
-  const handleDragStart = useCallback(() => {
-    setPendingClick(null);
-    onInteractionCancel();
-  }, [onInteractionCancel]);
-
   return (
     <Map
       defaultCenter={{ lat: 40.7831, lng: -73.9712 }}
       defaultZoom={12}
       style={{ width: "100%", height: "100%" }}
       onClick={handleClick}
-      onDragstart={handleDragStart}
+      onDragstart={onMapDragStart}
     />
   );
 }
