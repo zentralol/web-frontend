@@ -2,6 +2,7 @@ import "./globals.css";
 import { SpeedInsights } from "@vercel/speed-insights/next";
 import { ClerkProvider } from "@clerk/nextjs";
 import Navbar from "@/components/Navbar";
+import SmartAppBanner from "@/components/SmartAppBanner";
 import { hankenGrotesk, jetbrainsMono, spaceGrotesk } from "@/app/ui/fonts";
 
 export default function RootLayout({
@@ -19,7 +20,8 @@ export default function RootLayout({
       >
         <ClerkProvider>
           <Navbar />
-          <main className="pt-header">{children}</main>
+          <SmartAppBanner />
+          <main className="pt-[var(--viewport-top)]">{children}</main>
           <SpeedInsights />
         </ClerkProvider>
       </body>
