@@ -35,7 +35,7 @@ export default async function WelcomeBackPage() {
       ?.label ?? preferences.travelPace;
 
   return (
-    <div className="mx-auto flex min-h-[calc(100vh-var(--header-height))] max-w-4xl flex-col justify-center px-6 py-16">
+    <div className="mx-auto flex min-h-[calc(100vh-var(--header-height))] max-w-4xl flex-col justify-center px-4 py-16 sm:px-6">
       <p className="text-xs font-bold uppercase tracking-[0.25em] text-accent/80">
         Welcome back
       </p>

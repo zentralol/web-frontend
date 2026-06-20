@@ -20,13 +20,13 @@ export default async function SettingsPage() {
   }
 
   return (
-    <div className="mx-auto max-w-3xl px-6 py-10">
+    <div className="mx-auto max-w-3xl px-4 py-10 sm:px-6">
       <div className="mb-10">
         <p className="text-xs font-bold uppercase tracking-[0.25em] text-accent/80">
           Settings
         </p>
         <h1
-          className={`${spaceGrotesk.className} mt-3 text-3xl font-light tracking-tight text-white`}
+          className={`${spaceGrotesk.className} mt-3 text-2xl font-light tracking-tight text-white sm:text-3xl`}
         >
           Travel preferences
         </h1>

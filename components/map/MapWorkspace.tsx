@@ -30,6 +30,10 @@ export default function MapWorkspace() {
     }
   }, [selection]);
 
+  useEffect(() => {
+    window.dispatchEvent(new Event("resize"));
+  }, [selection.status]);
+
   const showLoadingSkeleton = useCallback(() => {
     flushSync(() => {
       setSelection({ status: "loading", lat: 0, lng: 0 });
@@ -41,6 +45,10 @@ export default function MapWorkspace() {
       setSelection({ status: "loading", lat, lng });
     });
     activeSessionRef.current = null;
+  }, []);
+
+  const handleDismiss = useCallback(() => {
+    setSelection({ status: "idle" });
   }, []);
 
   const handleMapPointerDown = useCallback(
@@ -87,15 +95,18 @@ export default function MapWorkspace() {
   }, []);
 
   return (
-    <div className="flex h-[calc(100vh-var(--header-height))]">
-      <div className="min-w-0 flex-1" onPointerDown={handleMapPointerDown}>
+    <div className="relative h-[calc(100vh-var(--header-height))] lg:flex">
+      <div
+        className="absolute inset-0 lg:relative lg:min-w-0 lg:flex-1"
+        onPointerDown={handleMapPointerDown}
+      >
         <MapView
           onLoadingStart={handleLoadingStart}
           onMapDragStart={handleMapDragStart}
           onSelectionChange={setSelection}
         />
       </div>
-      <LocationPanel selection={selection} />
+      <LocationPanel selection={selection} onDismiss={handleDismiss} />
     </div>
   );
 }
