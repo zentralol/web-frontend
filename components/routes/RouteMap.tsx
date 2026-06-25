@@ -30,6 +30,7 @@ type RouteMapProps = {
   origin: RouteLocation;
   destination: RouteLocation;
   encodedPolyline: string;
+  disabled?: boolean;
   onMapLocationPick: (location: RouteLocation) => void;
 };
 
@@ -154,18 +155,26 @@ function MapContent({
   origin,
   destination,
   encodedPolyline,
+  disabled = false,
   onMapLocationPick,
 }: RouteMapProps) {
   const placesLib = useMapsLibrary("places");
   const geocodingLib = useMapsLibrary("geocoding");
   const [pendingClick, setPendingClick] = useState<PendingClick | null>(null);
   const onMapLocationPickRef = useRef(onMapLocationPick);
+  const disabledRef = useRef(disabled);
+
+  useEffect(() => {
+    disabledRef.current = disabled;
+  }, [disabled]);
 
   useEffect(() => {
     onMapLocationPickRef.current = onMapLocationPick;
   }, [onMapLocationPick]);
 
   const handleClick = useCallback((ev: MapMouseEvent) => {
+    if (disabledRef.current) return;
+
     const { latLng, placeId } = ev.detail;
     if (!latLng) return;
 
@@ -194,7 +203,7 @@ function MapContent({
           placesLib,
           geocodingLib,
         );
-        if (cancelled) return;
+        if (cancelled || disabledRef.current) return;
         onMapLocationPickRef.current(toRouteLocation(selected));
       } catch {
         // Ignore geocode failures; user can retry or use autocomplete.
@@ -261,6 +270,7 @@ export default function RouteMap({
   origin,
   destination,
   encodedPolyline,
+  disabled = false,
   onMapLocationPick,
 }: RouteMapProps) {
   return (
@@ -269,6 +279,7 @@ export default function RouteMap({
         origin={origin}
         destination={destination}
         encodedPolyline={encodedPolyline}
+        disabled={disabled}
         onMapLocationPick={onMapLocationPick}
       />
     </div>

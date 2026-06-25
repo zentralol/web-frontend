@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useState } from "react";
 import { APIProvider } from "@vis.gl/react-google-maps";
 import RouteActionBar from "@/components/routes/RouteActionBar";
 import RouteMap from "@/components/routes/RouteMap";
@@ -66,26 +66,68 @@ export default function RoutesWorkspace() {
     [],
   );
 
-  useEffect(() => {
-    setRoutes([]);
-    setError(null);
-  }, [origin.lat, origin.lng, destination.lat, destination.lng]);
-
   const handlePlanRoute = useCallback(() => {
+    if (loading) return;
     void loadRoutes(origin, destination);
-  }, [loadRoutes, origin, destination]);
+  }, [loadRoutes, loading, origin, destination]);
 
   const activeRoute = routes.find((route) => route.id === selectedMode);
 
+  const clearRouteResults = useCallback(() => {
+    setRoutes([]);
+    setError(null);
+  }, []);
+
+  const handleOriginChange = useCallback(
+    (location: RouteLocation) => {
+      if (loading) return;
+      const changed = !locationsEqual(origin, location);
+      setOrigin(location);
+      if (changed) {
+        clearRouteResults();
+      }
+    },
+    [clearRouteResults, loading, origin],
+  );
+
+  const handleDestinationChange = useCallback(
+    (location: RouteLocation) => {
+      if (loading) return;
+      const changed = !locationsEqual(destination, location);
+      setDestination(location);
+      if (changed) {
+        clearRouteResults();
+      }
+    },
+    [clearRouteResults, destination, loading],
+  );
+
+  const handlePickTargetChange = useCallback(
+    (target: PickTarget) => {
+      if (loading) return;
+      setPickTarget(target);
+    },
+    [loading],
+  );
+
   const handleMapLocationPick = useCallback(
     (location: RouteLocation) => {
+      if (loading) return;
+      const changed =
+        pickTarget === "origin"
+          ? !locationsEqual(origin, location)
+          : !locationsEqual(destination, location);
+
       if (pickTarget === "origin") {
         setOrigin(location);
       } else {
         setDestination(location);
       }
+      if (changed) {
+        clearRouteResults();
+      }
     },
-    [pickTarget],
+    [clearRouteResults, destination, loading, origin, pickTarget],
   );
 
   if (!API_KEY) {
@@ -113,9 +155,9 @@ export default function RoutesWorkspace() {
           planning={loading}
           canPlan={!locationsEqual(origin, destination)}
           pickTarget={pickTarget}
-          onOriginChange={setOrigin}
-          onDestinationChange={setDestination}
-          onPickTargetChange={setPickTarget}
+          onOriginChange={handleOriginChange}
+          onDestinationChange={handleDestinationChange}
+          onPickTargetChange={handlePickTargetChange}
           onPlanRoute={handlePlanRoute}
           onSelectMode={setSelectedMode}
         />
@@ -126,6 +168,7 @@ export default function RoutesWorkspace() {
               origin={origin}
               destination={destination}
               encodedPolyline={activeRoute?.encodedPolyline ?? ""}
+              disabled={loading}
               onMapLocationPick={handleMapLocationPick}
             />
           </div>

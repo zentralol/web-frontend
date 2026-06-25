@@ -69,6 +69,7 @@ export default function RouteSidebar({
           variant="origin"
           value={origin}
           active={pickTarget === "origin"}
+          disabled={planning}
           onChange={onOriginChange}
           onFocus={() => onPickTargetChange("origin")}
         />
@@ -76,13 +77,18 @@ export default function RouteSidebar({
           variant="destination"
           value={destination}
           active={pickTarget === "destination"}
+          disabled={planning}
           onChange={onDestinationChange}
           onFocus={() => onPickTargetChange("destination")}
         />
 
         <p className="flex items-start gap-2 text-xs text-white/45">
           <MapPin className="mt-0.5 h-3.5 w-3.5 shrink-0" aria-hidden />
-          <span>{MAP_PICK_HINTS[pickTarget]}</span>
+          <span>
+            {planning
+              ? "Planning route. Inputs are locked."
+              : MAP_PICK_HINTS[pickTarget]}
+          </span>
         </p>
 
         <button

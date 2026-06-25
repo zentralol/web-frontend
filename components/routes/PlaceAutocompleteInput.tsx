@@ -8,6 +8,7 @@ type PlaceAutocompleteInputProps = {
   variant: "origin" | "destination";
   value: RouteLocation;
   active?: boolean;
+  disabled?: boolean;
   onChange: (location: RouteLocation) => void;
   onFocus?: () => void;
 };
@@ -16,6 +17,7 @@ export default function PlaceAutocompleteInput({
   variant,
   value,
   active = false,
+  disabled = false,
   onChange,
   onFocus,
 }: PlaceAutocompleteInputProps) {
@@ -25,6 +27,16 @@ export default function PlaceAutocompleteInput({
   const placesLib = useMapsLibrary("places");
   const onChangeRef = useRef(onChange);
   const onFocusRef = useRef(onFocus);
+  const disabledRef = useRef(disabled);
+  const valueLabelRef = useRef(value.label);
+
+  useEffect(() => {
+    disabledRef.current = disabled;
+  }, [disabled]);
+
+  useEffect(() => {
+    valueLabelRef.current = value.label;
+  }, [value.label]);
 
   useEffect(() => {
     onChangeRef.current = onChange;
@@ -38,7 +50,8 @@ export default function PlaceAutocompleteInput({
     if (!placesLib || !containerRef.current) return;
 
     const autocomplete = new placesLib.PlaceAutocompleteElement({
-      value: value.label,
+      value: valueLabelRef.current,
+      disabled: disabledRef.current,
       includedRegionCodes: ["us"],
       locationBias: {
         center: { lat: 40.758, lng: -73.9855 },
@@ -52,6 +65,8 @@ export default function PlaceAutocompleteInput({
     const handleSelect = async (
       event: google.maps.places.PlacePredictionSelectEvent,
     ) => {
+      if (disabledRef.current) return;
+
       const prediction = event.placePrediction;
       if (!prediction) return;
 
@@ -61,7 +76,7 @@ export default function PlaceAutocompleteInput({
       });
 
       const location = place.location;
-      if (!location) return;
+      if (!location || disabledRef.current) return;
 
       onChangeRef.current({
         lat: location.lat(),
@@ -95,6 +110,12 @@ export default function PlaceAutocompleteInput({
     autocomplete.value = value.label;
   }, [value.label]);
 
+  useEffect(() => {
+    const autocomplete = autocompleteRef.current;
+    if (!autocomplete) return;
+    autocomplete.disabled = disabled;
+  }, [disabled]);
+
   const borderClass = active
     ? variant === "origin"
       ? "border-[#34C759]/50"
@@ -103,8 +124,15 @@ export default function PlaceAutocompleteInput({
 
   return (
     <div
-      className={`flex items-center gap-3 rounded-xl border bg-white/[0.04] px-3 py-2 transition-colors ${borderClass}`}
-      onFocusCapture={() => onFocusRef.current?.()}
+      aria-disabled={disabled}
+      className={`flex items-center gap-3 rounded-xl border bg-white/[0.04] px-3 py-2 transition-colors ${borderClass} ${
+        disabled ? "cursor-not-allowed opacity-60" : ""
+      }`}
+      onFocusCapture={() => {
+        if (!disabled) {
+          onFocusRef.current?.();
+        }
+      }}
     >
       {variant === "origin" ? (
         <span
@@ -123,7 +151,10 @@ export default function PlaceAutocompleteInput({
           B
         </span>
       )}
-      <div ref={containerRef} className="min-w-0 flex-1" />
+      <div
+        ref={containerRef}
+        className={`min-w-0 flex-1 ${disabled ? "pointer-events-none" : ""}`}
+      />
     </div>
   );
 }
