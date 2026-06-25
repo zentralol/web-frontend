@@ -21,9 +21,6 @@ export default function SmartAppBanner() {
   const visible = mounted && !dismissed && !isDesktop;
 
   useEffect(() => {
-    setMounted(true);
-    setDismissed(localStorage.getItem(DISMISS_KEY) === "1");
-
     const media = window.matchMedia(`(min-width: ${LG_BREAKPOINT}px)`);
     const syncViewport = () => {
       const desktop = media.matches;
@@ -33,9 +30,20 @@ export default function SmartAppBanner() {
       }
     };
 
-    syncViewport();
+    // Defer the initial client reads off the effect body so we don't trigger a
+    // synchronous cascading render; this also keeps the first paint matching the
+    // server output (banner hidden) until after hydration.
+    const frame = requestAnimationFrame(() => {
+      setMounted(true);
+      setDismissed(localStorage.getItem(DISMISS_KEY) === "1");
+      syncViewport();
+    });
+
     media.addEventListener("change", syncViewport);
-    return () => media.removeEventListener("change", syncViewport);
+    return () => {
+      cancelAnimationFrame(frame);
+      media.removeEventListener("change", syncViewport);
+    };
   }, []);
 
   useEffect(() => {

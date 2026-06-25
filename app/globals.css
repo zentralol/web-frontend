@@ -22,3 +22,44 @@ body {
   background: var(--surface);
   color: var(--foreground);
 }
+
+@keyframes fade-in {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-fade-in {
+  animation: fade-in 0.35s ease-out;
+}
+
+.route-place-autocomplete {
+  width: 100%;
+  color-scheme: dark;
+  --gmpx-color-surface: #121314;
+  --gmpx-color-on-surface: #ffffff;
+  --gmpx-color-outline: rgba(255, 255, 255, 0.1);
+  --gmpx-color-primary: #ffdca1;
+  outline: none;
+  box-shadow: none;
+}
+
+.route-place-autocomplete:focus,
+.route-place-autocomplete:focus-visible {
+  outline: none;
+  box-shadow: none;
+}
+
+.route-place-autocomplete::part(focus-ring) {
+  display: none;
+}
+
+.route-place-autocomplete::part(input) {
+  outline: none;
+  box-shadow: none;
+}

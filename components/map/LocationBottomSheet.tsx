@@ -38,26 +38,44 @@ export default function LocationBottomSheet({
     onDismissRef.current = onDismiss;
   }, [onDismiss]);
 
+  // Mount the sheet (closed) when a selection becomes active. The state updates
+  // run inside rAF rather than synchronously in the effect body to avoid a
+  // cascading render.
   useEffect(() => {
-    if (isActive && !present) {
+    if (!isActive || present) return;
+
+    const frame = requestAnimationFrame(() => {
       setPresent(true);
       setSnap("half");
       setDragOffset(0);
       setOpen(false);
+    });
 
-      const frame = requestAnimationFrame(() => {
-        requestAnimationFrame(() => setOpen(true));
-      });
-
-      return () => cancelAnimationFrame(frame);
-    }
+    return () => cancelAnimationFrame(frame);
   }, [isActive, present]);
 
+  // Slide the sheet up on the frame after it has mounted closed.
   useEffect(() => {
-    if (!isActive && present && open) {
+    if (!isActive || !present || open) return;
+
+    const frame = requestAnimationFrame(() => {
+      requestAnimationFrame(() => setOpen(true));
+    });
+
+    return () => cancelAnimationFrame(frame);
+  }, [isActive, present, open]);
+
+  // Slide the sheet down when the selection clears; unmount happens on
+  // transition end.
+  useEffect(() => {
+    if (isActive || !present || !open) return;
+
+    const frame = requestAnimationFrame(() => {
       setOpen(false);
       setDragOffset(0);
-    }
+    });
+
+    return () => cancelAnimationFrame(frame);
   }, [isActive, present, open]);
 
   useEffect(() => {
