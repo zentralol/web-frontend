@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useTransition } from "react";
 import { AssistantChat } from "@/components/assistant/AssistantChat";
@@ -30,12 +30,10 @@ export function AssistantWorkspace({
     string | null
   >(null);
 
-  const isSwitchingConversation = pendingConversationId !== null;
+  const visiblePendingConversationId =
+    pendingConversationId === activeConversationId ? null : pendingConversationId;
+  const isSwitchingConversation = visiblePendingConversationId !== null;
   const isActiveConversationEmpty = initialMessages.length === 0;
-
-  useEffect(() => {
-    setPendingConversationId(null);
-  }, [activeConversationId]);
 
   const canDeleteConversation = (conversationId: string) => {
     if (conversations.length > 1) {
@@ -88,11 +86,11 @@ export function AssistantWorkspace({
   };
 
   return (
-    <div className="mx-auto flex h-[calc(100vh-var(--viewport-top))] max-w-6xl flex-col lg:flex-row">
+    <div className="mx-auto flex h-[calc(100vh-var(--viewport-top))] w-full max-w-6xl flex-col overflow-hidden lg:flex-row">
       <ConversationSidebar
         conversations={conversations}
         activeConversationId={activeConversationId}
-        pendingConversationId={pendingConversationId}
+        pendingConversationId={visiblePendingConversationId}
         isPending={isPending}
         isActiveConversationEmpty={isActiveConversationEmpty}
         canDeleteConversation={canDeleteConversation}
@@ -100,15 +98,17 @@ export function AssistantWorkspace({
         onSelectConversation={handleSelectConversation}
         onDeleteConversation={handleDeleteConversation}
       />
-      {isSwitchingConversation ? (
-        <AssistantChatSkeleton />
-      ) : (
-        <AssistantChat
-          key={activeConversationId}
-          conversationId={activeConversationId}
-          initialMessages={initialMessages}
-        />
-      )}
+      <section className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
+        {isSwitchingConversation ? (
+          <AssistantChatSkeleton />
+        ) : (
+          <AssistantChat
+            key={activeConversationId}
+            conversationId={activeConversationId}
+            initialMessages={initialMessages}
+          />
+        )}
+      </section>
     </div>
   );
 }

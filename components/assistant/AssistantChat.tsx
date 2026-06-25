@@ -89,7 +89,7 @@ export function AssistantChat({
   const showThinking = status === "submitted";
 
   return (
-    <div className="flex min-h-0 min-w-0 flex-1 flex-col px-4 py-6 sm:px-6">
+    <div className="flex min-h-0 min-w-0 max-w-full flex-1 flex-col overflow-hidden px-4 py-6 sm:px-6">
       <div className="mb-6 shrink-0">
         <h1
           className={`${spaceGrotesk.className} text-2xl font-light tracking-tight text-white sm:text-3xl`}
@@ -101,7 +101,7 @@ export function AssistantChat({
         </p>
       </div>
 
-      <div className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-xl border border-white/10 bg-white/[0.03]">
+      <div className="flex min-h-0 min-w-0 max-w-full flex-1 flex-col overflow-hidden rounded-xl border border-white/10 bg-white/[0.03]">
         <div className="flex-1 space-y-4 overflow-y-auto p-4 sm:p-6">
           {messages.map((message) => {
             const isUser = message.role === "user";
