@@ -1,0 +1,146 @@
+"use client";
+
+import { useCallback, useEffect, useState } from "react";
+import { APIProvider } from "@vis.gl/react-google-maps";
+import RouteActionBar from "@/components/routes/RouteActionBar";
+import RouteMap from "@/components/routes/RouteMap";
+import RouteSidebar from "@/components/routes/RouteSidebar";
+import { fetchRouteOptions } from "@/lib/routes/fetchRouteOptions";
+import {
+  DEFAULT_DESTINATION,
+  DEFAULT_ORIGIN,
+  type RouteLocation,
+  type RouteOption,
+  type TravelMode,
+} from "@/lib/routes/types";
+
+const API_KEY = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY;
+
+type PickTarget = "origin" | "destination";
+
+function locationsEqual(a: RouteLocation, b: RouteLocation): boolean {
+  return a.lat === b.lat && a.lng === b.lng;
+}
+
+export default function RoutesWorkspace() {
+  const [origin, setOrigin] = useState<RouteLocation>(DEFAULT_ORIGIN);
+  const [destination, setDestination] =
+    useState<RouteLocation>(DEFAULT_DESTINATION);
+  const [routes, setRoutes] = useState<RouteOption[]>([]);
+  const [selectedMode, setSelectedMode] = useState<TravelMode>("walk");
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [pickTarget, setPickTarget] = useState<PickTarget>("destination");
+
+  const loadRoutes = useCallback(
+    async (nextOrigin: RouteLocation, nextDestination: RouteLocation) => {
+      if (locationsEqual(nextOrigin, nextDestination)) {
+        setError("Origin and destination must differ.");
+        setRoutes([]);
+        return;
+      }
+
+      setLoading(true);
+      setError(null);
+
+      try {
+        const nextRoutes = await fetchRouteOptions(nextOrigin, nextDestination);
+        setRoutes(nextRoutes);
+
+        setSelectedMode((prev) => {
+          const stillValid = nextRoutes.some(
+            (route) => route.id === prev && !route.error,
+          );
+          if (stillValid) return prev;
+          return nextRoutes.find((route) => !route.error)?.id ?? prev;
+        });
+      } catch (err) {
+        const message =
+          err instanceof Error ? err.message : "Failed to compute routes";
+        setError(message);
+        setRoutes([]);
+      } finally {
+        setLoading(false);
+      }
+    },
+    [],
+  );
+
+  useEffect(() => {
+    setRoutes([]);
+    setError(null);
+  }, [origin.lat, origin.lng, destination.lat, destination.lng]);
+
+  const handlePlanRoute = useCallback(() => {
+    void loadRoutes(origin, destination);
+  }, [loadRoutes, origin, destination]);
+
+  const activeRoute = routes.find((route) => route.id === selectedMode);
+
+  const handleMapLocationPick = useCallback(
+    (location: RouteLocation) => {
+      if (pickTarget === "origin") {
+        setOrigin(location);
+      } else {
+        setDestination(location);
+      }
+    },
+    [pickTarget],
+  );
+
+  if (!API_KEY) {
+    return (
+      <div className="flex h-[calc(100vh-var(--viewport-top))] items-center justify-center px-6">
+        <p className="text-center text-sm text-white/50">
+          Missing NEXT_PUBLIC_GOOGLE_MAPS_API_KEY
+        </p>
+      </div>
+    );
+  }
+
+  return (
+    <APIProvider
+      apiKey={API_KEY}
+      libraries={["places", "geometry", "geocoding"]}
+    >
+      <div className="flex h-[calc(100vh-var(--viewport-top))] flex-col lg:flex-row">
+        <RouteSidebar
+          origin={origin}
+          destination={destination}
+          routes={routes}
+          selectedMode={selectedMode}
+          loading={loading}
+          planning={loading}
+          canPlan={!locationsEqual(origin, destination)}
+          pickTarget={pickTarget}
+          onOriginChange={setOrigin}
+          onDestinationChange={setDestination}
+          onPickTargetChange={setPickTarget}
+          onPlanRoute={handlePlanRoute}
+          onSelectMode={setSelectedMode}
+        />
+
+        <div className="relative min-h-[320px] min-w-0 flex-1 lg:h-auto">
+          <div className="absolute inset-0">
+            <RouteMap
+              origin={origin}
+              destination={destination}
+              encodedPolyline={activeRoute?.encodedPolyline ?? ""}
+              onMapLocationPick={handleMapLocationPick}
+            />
+          </div>
+          <RouteActionBar
+            route={activeRoute}
+            origin={origin}
+            destination={destination}
+          />
+          {error && (
+            <div className="absolute left-4 top-4 z-20 rounded-lg border border-[#ff3b30]/20 bg-surface/95 px-3 py-2 text-xs text-[#ff3b30]">
+              {error}
+            </div>
+          )}
+        </div>
+      </div>
+    </APIProvider>
+  );
+}
