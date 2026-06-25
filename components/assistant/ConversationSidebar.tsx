@@ -7,6 +7,7 @@ import type { ConversationSummary } from "@/lib/assistant/types";
 type ConversationSidebarProps = {
   conversations: ConversationSummary[];
   activeConversationId: string;
+  pendingConversationId: string | null;
   isPending: boolean;
   isActiveConversationEmpty: boolean;
   canDeleteConversation: (conversationId: string) => boolean;
@@ -47,6 +48,7 @@ function formatRelativeTime(isoDate: string): string {
 export function ConversationSidebar({
   conversations,
   activeConversationId,
+  pendingConversationId,
   isPending,
   isActiveConversationEmpty,
   canDeleteConversation,
@@ -54,6 +56,8 @@ export function ConversationSidebar({
   onSelectConversation,
   onDeleteConversation,
 }: ConversationSidebarProps) {
+  const highlightedConversationId =
+    pendingConversationId ?? activeConversationId;
   const isNewChatDisabled = isPending || isActiveConversationEmpty;
 
   return (
@@ -98,7 +102,7 @@ export function ConversationSidebar({
           <p className="px-3 py-4 text-sm text-white/45">No conversations yet.</p>
         ) : (
           conversations.map((conversation) => {
-            const isActive = conversation.id === activeConversationId;
+            const isActive = conversation.id === highlightedConversationId;
 
             return (
               <div

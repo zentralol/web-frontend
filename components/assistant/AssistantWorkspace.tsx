@@ -1,8 +1,10 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useTransition } from "react";
 import { AssistantChat } from "@/components/assistant/AssistantChat";
+import { AssistantChatSkeleton } from "@/components/assistant/AssistantChatSkeleton";
 import { ConversationSidebar } from "@/components/assistant/ConversationSidebar";
 import type { ConversationSummary } from "@/lib/assistant/types";
 import type { UIMessage } from "ai";
@@ -24,8 +26,16 @@ export function AssistantWorkspace({
 }: AssistantWorkspaceProps) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
+  const [pendingConversationId, setPendingConversationId] = useState<
+    string | null
+  >(null);
 
+  const isSwitchingConversation = pendingConversationId !== null;
   const isActiveConversationEmpty = initialMessages.length === 0;
+
+  useEffect(() => {
+    setPendingConversationId(null);
+  }, [activeConversationId]);
 
   const canDeleteConversation = (conversationId: string) => {
     if (conversations.length > 1) {
@@ -43,6 +53,7 @@ export function AssistantWorkspace({
 
     startTransition(async () => {
       const newId = await createConversationAction();
+      setPendingConversationId(newId);
       router.push(`/assistant/${newId}`);
     });
   };
@@ -51,7 +62,11 @@ export function AssistantWorkspace({
     if (conversationId === activeConversationId) {
       return;
     }
-    router.push(`/assistant/${conversationId}`);
+
+    setPendingConversationId(conversationId);
+    startTransition(() => {
+      router.push(`/assistant/${conversationId}`);
+    });
   };
 
   const handleDeleteConversation = (conversationId: string) => {
@@ -63,6 +78,7 @@ export function AssistantWorkspace({
       const nextId = await deleteConversationAction(conversationId);
 
       if (conversationId === activeConversationId && nextId) {
+        setPendingConversationId(nextId);
         router.push(`/assistant/${nextId}`);
         return;
       }
@@ -76,6 +92,7 @@ export function AssistantWorkspace({
       <ConversationSidebar
         conversations={conversations}
         activeConversationId={activeConversationId}
+        pendingConversationId={pendingConversationId}
         isPending={isPending}
         isActiveConversationEmpty={isActiveConversationEmpty}
         canDeleteConversation={canDeleteConversation}
@@ -83,11 +100,15 @@ export function AssistantWorkspace({
         onSelectConversation={handleSelectConversation}
         onDeleteConversation={handleDeleteConversation}
       />
-      <AssistantChat
-        key={activeConversationId}
-        conversationId={activeConversationId}
-        initialMessages={initialMessages}
-      />
+      {isSwitchingConversation ? (
+        <AssistantChatSkeleton />
+      ) : (
+        <AssistantChat
+          key={activeConversationId}
+          conversationId={activeConversationId}
+          initialMessages={initialMessages}
+        />
+      )}
     </div>
   );
 }
