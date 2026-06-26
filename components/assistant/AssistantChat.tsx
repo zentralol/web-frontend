@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { useRouter } from "next/navigation";
 import { useChat } from "@ai-sdk/react";
 import { AlertCircle, Bot, Send, User } from "lucide-react";
 import { DefaultChatTransport, type UIMessage } from "ai";
@@ -36,7 +35,6 @@ export function AssistantChat({
   conversationId,
   initialMessages,
 }: AssistantChatProps) {
-  const router = useRouter();
   const [inputValue, setInputValue] = useState("");
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
@@ -63,9 +61,6 @@ export function AssistantChat({
     id: conversationId,
     transport,
     messages: seedMessages,
-    onFinish: () => {
-      router.refresh();
-    },
   });
 
   const isLoading = status === "submitted" || status === "streaming";
