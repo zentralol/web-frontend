@@ -202,7 +202,6 @@ export function AssistantChat({
               value={inputValue}
               onChange={(event) => setInputValue(event.target.value)}
               placeholder="Ask about routes, transit, or walking options..."
-              disabled={isLoading}
               className="flex-1 rounded-lg border border-white/10 bg-surface px-4 py-3 text-sm text-white placeholder:text-white/40 focus:border-accent/50 focus:outline-none disabled:opacity-50"
             />
             <button
