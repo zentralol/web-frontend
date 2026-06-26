@@ -10,6 +10,7 @@ import {
 import { buildAssistantSystemPrompt } from "@/lib/assistant/preferencesContext";
 import { getOnboardingPreferences } from "@/lib/onboarding/queries";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
+import { logger } from "@/lib/logger";
 import {
   convertToModelMessages,
   createIdGenerator,
@@ -138,21 +139,31 @@ export async function POST(request: Request) {
     return result.toUIMessageStreamResponse({
       originalMessages: validatedMessages,
       generateMessageId: createIdGenerator({ prefix: "msg", size: 16 }),
-      onFinish: async ({ messages, isAborted }) => {
+      onFinish: ({ messages, isAborted }) => {
         if (isAborted) {
           return;
         }
 
-        await insertMessages(supabase, conversationId, messages, {
-          model: MODEL_NAME,
-          usage,
-        });
-        await maybeGenerateConversationTitle(
-          supabase,
-          conversation,
-          messages,
-        );
-        revalidatePath("/assistant");
+        void (async () => {
+          try {
+            await insertMessages(supabase, conversationId, messages, {
+              model: MODEL_NAME,
+              usage,
+            });
+            await maybeGenerateConversationTitle(
+              supabase,
+              conversation,
+              messages,
+            );
+            revalidatePath("/assistant");
+          } catch (error) {
+            logger.error("Assistant post-response work failed", {
+              conversationId,
+              userId,
+              error,
+            });
+          }
+        })();
       },
     });
   } catch (error) {
