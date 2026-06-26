@@ -21,6 +21,7 @@ import {
   UserButton,
 } from "@clerk/nextjs";
 import { spaceGrotesk } from "@/app/ui/fonts";
+import { isActiveRoute } from "@/lib/navigation";
 
 const tabs = [
   { id: "map", href: "/map", name: "Map", icon: MapPin },
@@ -80,7 +81,7 @@ export default function Navbar() {
         >
           {tabs.map((tab) => {
             const Icon = tab.icon;
-            const isActive = pathname === tab.href;
+            const isActive = isActiveRoute(pathname, tab.href);
 
             return (
               <Link
@@ -122,7 +123,7 @@ export default function Navbar() {
               href="/settings"
               aria-label="Settings"
               className={`${spaceGrotesk.className} hidden items-center gap-1.5 px-3 py-2 text-[11px] font-bold uppercase tracking-widest transition-colors duration-150 sm:flex ${
-                pathname === "/settings"
+                isActiveRoute(pathname, "/settings")
                   ? "text-accent"
                   : "text-white/60 hover:text-accent"
               }`}
@@ -172,7 +173,7 @@ export default function Navbar() {
             <ul className="space-y-1">
               {tabs.map((tab) => {
                 const Icon = tab.icon;
-                const isActive = pathname === tab.href;
+                const isActive = isActiveRoute(pathname, tab.href);
 
                 return (
                   <li key={tab.id}>
@@ -218,8 +219,8 @@ export default function Navbar() {
               <Show when="signed-in">
                 <Link
                   href="/settings"
-                  className={`${tabLinkClass(pathname === "/settings")} rounded-xl px-3 py-3 hover:bg-white/5 ${
-                    pathname === "/settings" ? "bg-accent/10" : ""
+                  className={`${tabLinkClass(isActiveRoute(pathname, "/settings"))} rounded-xl px-3 py-3 hover:bg-white/5 ${
+                    isActiveRoute(pathname, "/settings") ? "bg-accent/10" : ""
                   }`}
                   onClick={closeMenu}
                 >
