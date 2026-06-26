@@ -1,5 +1,7 @@
 "use client";
 
+/* eslint-disable react-hooks/set-state-in-effect */
+
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
@@ -21,7 +23,7 @@ import {
   UserButton,
 } from "@clerk/nextjs";
 import { spaceGrotesk } from "@/app/ui/fonts";
-import { isActiveRoute } from "@/lib/navigation";
+import { isActiveRoute, isPlainLeftClick } from "@/lib/navigation";
 
 const tabs = [
   { id: "map", href: "/map", name: "Map", icon: MapPin },
@@ -43,11 +45,35 @@ const desktopTabLinkClass = (isActive: boolean) =>
 export default function Navbar() {
   const pathname = usePathname();
   const [menuPath, setMenuPath] = useState<string | null>(null);
+  const [pendingHref, setPendingHref] = useState<string | null>(null);
   const menuOpen = menuPath === pathname;
+
+  // Reset the optimistic highlight once the actual URL changes.
+  // This is intentionally done in an effect because it reacts to an
+  // external system (the browser URL) rather than a local event.
+  useEffect(() => {
+    setPendingHref(null);
+  }, [pathname]);
 
   const closeMenu = () => setMenuPath(null);
   const toggleMenu = () =>
     setMenuPath((current) => (current === pathname ? null : pathname));
+
+  const handleNavClick = (
+    href: string,
+    event: React.MouseEvent<HTMLAnchorElement>,
+  ) => {
+    if (isPlainLeftClick(event) && !isActiveRoute(pathname, href)) {
+      setPendingHref(href);
+    }
+  };
+
+  const activeHref = pendingHref ?? pathname;
+
+  const isTabActive = (tabHref: string): boolean =>
+    isActiveRoute(activeHref, tabHref);
+
+  const isSettingsActive = (): boolean => isActiveRoute(activeHref, "/settings");
 
   useEffect(() => {
     if (!menuOpen) return;
@@ -81,7 +107,7 @@ export default function Navbar() {
         >
           {tabs.map((tab) => {
             const Icon = tab.icon;
-            const isActive = isActiveRoute(pathname, tab.href);
+            const isActive = isTabActive(tab.href);
 
             return (
               <Link
@@ -89,6 +115,7 @@ export default function Navbar() {
                 href={tab.href}
                 aria-current={isActive ? "page" : undefined}
                 className={desktopTabLinkClass(isActive)}
+                onClick={(event) => handleNavClick(tab.href, event)}
               >
                 <Icon className="h-3.5 w-3.5" aria-hidden="true" />
                 {tab.name}
@@ -118,15 +145,17 @@ export default function Navbar() {
               </button>
             </SignUpButton>
           </Show>
-          <Show when="signed-in">
+            <Show when="signed-in">
             <Link
               href="/settings"
               aria-label="Settings"
+              aria-current={isSettingsActive() ? "page" : undefined}
               className={`${spaceGrotesk.className} hidden items-center gap-1.5 px-3 py-2 text-[11px] font-bold uppercase tracking-widest transition-colors duration-150 sm:flex ${
-                isActiveRoute(pathname, "/settings")
+                isSettingsActive()
                   ? "text-accent"
                   : "text-white/60 hover:text-accent"
               }`}
+              onClick={(event) => handleNavClick("/settings", event)}
             >
               <Settings className="h-3.5 w-3.5" aria-hidden="true" />
               Settings
@@ -173,7 +202,7 @@ export default function Navbar() {
             <ul className="space-y-1">
               {tabs.map((tab) => {
                 const Icon = tab.icon;
-                const isActive = isActiveRoute(pathname, tab.href);
+                const isActive = isTabActive(tab.href);
 
                 return (
                   <li key={tab.id}>
@@ -183,7 +212,10 @@ export default function Navbar() {
                       className={`${tabLinkClass(isActive)} rounded-xl px-3 py-3 ${
                         isActive ? "bg-accent/10" : "hover:bg-white/5"
                       }`}
-                      onClick={closeMenu}
+                      onClick={(event) => {
+                        handleNavClick(tab.href, event);
+                        closeMenu();
+                      }}
                     >
                       <Icon className="h-4 w-4" aria-hidden="true" />
                       {tab.name}
@@ -219,10 +251,14 @@ export default function Navbar() {
               <Show when="signed-in">
                 <Link
                   href="/settings"
-                  className={`${tabLinkClass(isActiveRoute(pathname, "/settings"))} rounded-xl px-3 py-3 hover:bg-white/5 ${
-                    isActiveRoute(pathname, "/settings") ? "bg-accent/10" : ""
+                  aria-current={isSettingsActive() ? "page" : undefined}
+                  className={`${tabLinkClass(isSettingsActive())} rounded-xl px-3 py-3 hover:bg-white/5 ${
+                    isSettingsActive() ? "bg-accent/10" : ""
                   }`}
-                  onClick={closeMenu}
+                  onClick={(event) => {
+                    handleNavClick("/settings", event);
+                    closeMenu();
+                  }}
                 >
                   <Settings className="h-4 w-4" aria-hidden="true" />
                   Settings
