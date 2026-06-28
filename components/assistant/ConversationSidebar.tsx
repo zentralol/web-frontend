@@ -2,6 +2,7 @@
 
 import { MessageSquarePlus, Trash2 } from "lucide-react";
 import { spaceGrotesk } from "@/app/ui/fonts";
+import { getHighlightedConversationId } from "@/lib/assistant/conversationState";
 import type { ConversationSummary } from "@/lib/assistant/types";
 
 type ConversationSidebarProps = {
@@ -56,8 +57,10 @@ export function ConversationSidebar({
   onSelectConversation,
   onDeleteConversation,
 }: ConversationSidebarProps) {
-  const highlightedConversationId =
-    pendingConversationId ?? activeConversationId;
+  const highlightedConversationId = getHighlightedConversationId(
+    pendingConversationId,
+    activeConversationId,
+  );
   const isNewChatDisabled = isPending || isActiveConversationEmpty;
 
   return (
