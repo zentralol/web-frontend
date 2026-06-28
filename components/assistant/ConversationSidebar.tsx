@@ -2,6 +2,7 @@
 
 import { MessageSquarePlus, Trash2 } from "lucide-react";
 import { spaceGrotesk } from "@/app/ui/fonts";
+import { getHighlightedConversationId } from "@/lib/assistant/conversationState";
 import type { ConversationSummary } from "@/lib/assistant/types";
 
 type ConversationSidebarProps = {
@@ -56,8 +57,10 @@ export function ConversationSidebar({
   onSelectConversation,
   onDeleteConversation,
 }: ConversationSidebarProps) {
-  const highlightedConversationId =
-    pendingConversationId ?? activeConversationId;
+  const highlightedConversationId = getHighlightedConversationId(
+    pendingConversationId,
+    activeConversationId,
+  );
   const isNewChatDisabled = isPending || isActiveConversationEmpty;
 
   return (
@@ -88,13 +91,8 @@ export function ConversationSidebar({
           className={`${spaceGrotesk.className} mt-4 flex w-full items-center justify-center gap-2 rounded-lg bg-accent px-4 py-2.5 text-sm text-surface transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50`}
         >
           <MessageSquarePlus className="h-4 w-4" />
-          New chat
+          {isActiveConversationEmpty ? "Already in a new chat" : "New chat"}
         </button>
-        {isActiveConversationEmpty && (
-          <p className="mt-2 text-xs text-white/40">
-            You&apos;re already in a new chat
-          </p>
-        )}
       </div>
 
       <div className="flex max-h-48 flex-col gap-1 overflow-y-auto p-2 lg:max-h-none lg:flex-1">

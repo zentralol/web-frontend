@@ -6,10 +6,15 @@ import { AlertCircle, Bot, Send, User } from "lucide-react";
 import { DefaultChatTransport, type UIMessage } from "ai";
 import { spaceGrotesk } from "@/app/ui/fonts";
 import { MarkdownMessage } from "@/components/assistant/MarkdownMessage";
+import { useConversationEmptiness } from "@/components/assistant/conversationEmptinessContext";
 import { extractMessageText } from "@/lib/assistant/mappers";
+import {
+  WELCOME_MESSAGE_ID,
+  isConversationEmpty,
+} from "@/lib/assistant/conversationState";
 
 const WELCOME_MESSAGE: UIMessage = {
-  id: "welcome",
+  id: WELCOME_MESSAGE_ID,
   role: "assistant",
   parts: [
     {
@@ -67,9 +72,15 @@ export function AssistantChat({
   const hasUserMessages = messages.some((message) => message.role === "user");
   const showSuggestedQuestions = !hasUserMessages && !isLoading;
 
+  const { setActiveConversationEmpty } = useConversationEmptiness();
+
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages, status]);
+
+  useEffect(() => {
+    setActiveConversationEmpty(isConversationEmpty(messages));
+  }, [messages, setActiveConversationEmpty]);
 
   const handleSendMessage = async (text: string) => {
     if (!text.trim() || isLoading) return;

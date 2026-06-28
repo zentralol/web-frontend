@@ -1,5 +1,5 @@
 import { AssistantChatSkeleton } from "@/components/assistant/AssistantChatSkeleton";
 
-export default function AssistantLoading() {
+export default function AssistantConversationLoading() {
   return <AssistantChatSkeleton />;
 }

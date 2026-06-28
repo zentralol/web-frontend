@@ -1,12 +1,7 @@
 import { auth } from "@clerk/nextjs/server";
 import { notFound, redirect } from "next/navigation";
-import { AssistantWorkspace } from "@/components/assistant/AssistantWorkspace";
-import {
-  getConversation,
-  getMessages,
-  listConversations,
-} from "@/lib/assistant/queries";
-import { getOnboardingPreferences } from "@/lib/onboarding/queries";
+import { AssistantChat } from "@/components/assistant/AssistantChat";
+import { getConversation, getMessages } from "@/lib/assistant/queries";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 
 type AssistantConversationPageProps = {
@@ -24,31 +19,18 @@ export default async function AssistantConversationPage({
   }
 
   const supabase = await createServerSupabaseClient();
-  const preferences = await getOnboardingPreferences(supabase, userId);
-
-  if (!preferences?.onboardingCompleted) {
-    redirect("/onboarding");
-  }
-
-  const conversation = await getConversation(
-    supabase,
-    userId,
-    conversationId,
-  );
+  const conversation = await getConversation(supabase, userId, conversationId);
 
   if (!conversation) {
     notFound();
   }
 
-  const [conversations, initialMessages] = await Promise.all([
-    listConversations(supabase, userId),
-    getMessages(supabase, conversationId),
-  ]);
+  const initialMessages = await getMessages(supabase, conversationId);
 
   return (
-    <AssistantWorkspace
-      conversations={conversations}
-      activeConversationId={conversationId}
+    <AssistantChat
+      key={conversationId}
+      conversationId={conversationId}
       initialMessages={initialMessages}
     />
   );
