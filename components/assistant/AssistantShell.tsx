@@ -1,6 +1,14 @@
 "use client";
 
-import { useMemo, useState, useTransition, type ReactNode } from "react";
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  useTransition,
+  type ReactNode,
+} from "react";
 import { useParams, useRouter } from "next/navigation";
 import { ConversationSidebar } from "@/components/assistant/ConversationSidebar";
 import { ConversationEmptinessProvider } from "@/components/assistant/conversationEmptinessContext";
@@ -8,6 +16,7 @@ import {
   canDeleteConversation as evaluateCanDeleteConversation,
   resolveVisiblePendingId,
 } from "@/lib/assistant/conversationState";
+import { scheduleSidebarRefresh } from "@/lib/assistant/refreshSidebar";
 import type { ConversationSummary } from "@/lib/assistant/types";
 import {
   createConversationAction,
@@ -33,10 +42,64 @@ export function AssistantShell({
   >(null);
   const [isActiveConversationEmpty, setActiveConversationEmpty] =
     useState(false);
+  const [optimisticTitles, setOptimisticTitles] = useState<
+    Record<string, string>
+  >({});
+
+  const refreshCleanupRef = useRef<(() => void) | null>(null);
 
   const visiblePendingConversationId = resolveVisiblePendingId(
     pendingConversationId,
     activeConversationId,
+  );
+
+  const requestSidebarRefresh = useCallback(() => {
+    refreshCleanupRef.current?.();
+    refreshCleanupRef.current = scheduleSidebarRefresh(() => {
+      router.refresh();
+    });
+  }, [router]);
+
+  const setOptimisticTitle = useCallback(
+    (conversationId: string, title: string) => {
+      setOptimisticTitles((current) => ({
+        ...current,
+        [conversationId]: title,
+      }));
+    },
+    [],
+  );
+
+  useEffect(() => {
+    return () => {
+      refreshCleanupRef.current?.();
+    };
+  }, []);
+
+  useEffect(() => {
+    setOptimisticTitles((current) => {
+      let changed = false;
+      const next = { ...current };
+
+      for (const conversation of conversations) {
+        if (conversation.title && next[conversation.id]) {
+          delete next[conversation.id];
+          changed = true;
+        }
+      }
+
+      return changed ? next : current;
+    });
+  }, [conversations]);
+
+  const sidebarConversations = useMemo(
+    () =>
+      conversations.map((conversation) => ({
+        ...conversation,
+        title:
+          conversation.title ?? optimisticTitles[conversation.id] ?? null,
+      })),
+    [conversations, optimisticTitles],
   );
 
   const canDeleteConversation = (conversationId: string) =>
@@ -88,16 +151,25 @@ export function AssistantShell({
     });
   };
 
-  const emptinessValue = useMemo(
-    () => ({ isActiveConversationEmpty, setActiveConversationEmpty }),
-    [isActiveConversationEmpty],
+  const shellContextValue = useMemo(
+    () => ({
+      isActiveConversationEmpty,
+      setActiveConversationEmpty,
+      requestSidebarRefresh,
+      setOptimisticTitle,
+    }),
+    [
+      isActiveConversationEmpty,
+      requestSidebarRefresh,
+      setOptimisticTitle,
+    ],
   );
 
   return (
-    <ConversationEmptinessProvider value={emptinessValue}>
+    <ConversationEmptinessProvider value={shellContextValue}>
       <div className="mx-auto flex h-[calc(100vh-var(--viewport-top))] w-full max-w-6xl flex-col overflow-hidden lg:flex-row">
         <ConversationSidebar
-          conversations={conversations}
+          conversations={sidebarConversations}
           activeConversationId={activeConversationId}
           pendingConversationId={visiblePendingConversationId}
           isPending={isPending}
