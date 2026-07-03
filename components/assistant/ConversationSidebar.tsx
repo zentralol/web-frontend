@@ -10,6 +10,7 @@ type ConversationSidebarProps = {
   activeConversationId: string;
   pendingConversationId: string | null;
   isPending: boolean;
+  isDeleteDisabled: boolean;
   isActiveConversationEmpty: boolean;
   canDeleteConversation: (conversationId: string) => boolean;
   onNewChat: () => void;
@@ -51,6 +52,7 @@ export function ConversationSidebar({
   activeConversationId,
   pendingConversationId,
   isPending,
+  isDeleteDisabled,
   isActiveConversationEmpty,
   canDeleteConversation,
   onNewChat,
@@ -128,9 +130,13 @@ export function ConversationSidebar({
                   <button
                     type="button"
                     onClick={() => onDeleteConversation(conversation.id)}
-                    disabled={isPending}
+                    disabled={isDeleteDisabled}
                     aria-label={`Delete ${conversation.title ?? "conversation"}`}
-                    className="mr-2 rounded-md p-2 text-white/35 opacity-100 transition-colors hover:bg-red-500/10 hover:text-red-300 disabled:opacity-50 lg:opacity-0 lg:group-hover:opacity-100"
+                    className={`mr-2 rounded-md p-2 opacity-100 transition-colors lg:opacity-0 lg:group-hover:opacity-100 ${
+                      isDeleteDisabled
+                        ? "cursor-not-allowed text-white/15"
+                        : "text-white/35 hover:bg-red-500/10 hover:text-red-300"
+                    }`}
                   >
                     <Trash2 className="h-3.5 w-3.5" />
                   </button>
