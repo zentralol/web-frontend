@@ -14,8 +14,10 @@ import { ConversationSidebar } from "@/components/assistant/ConversationSidebar"
 import { ConversationEmptinessProvider } from "@/components/assistant/conversationEmptinessContext";
 import {
   canDeleteConversation as evaluateCanDeleteConversation,
+  isConversationListBlocked,
   resolveVisiblePendingId,
 } from "@/lib/assistant/conversationState";
+import { logger } from "@/lib/logger";
 import {
   resolveSidebarRefreshDelays,
   scheduleSidebarRefresh,
@@ -48,6 +50,9 @@ export function AssistantShell({
   >(null);
   const [isActiveConversationEmpty, setActiveConversationEmpty] =
     useState(false);
+  const [deletingConversationId, setDeletingConversationId] = useState<
+    string | null
+  >(null);
   const [optimisticTitles, setOptimisticTitles] = useState<
     Record<string, string>
   >({});
@@ -67,6 +72,12 @@ export function AssistantShell({
     pendingConversationId,
     activeConversationId,
   );
+
+  const isListBlocked = isConversationListBlocked({
+    isPending,
+    deletingConversationId,
+    visiblePendingConversationId,
+  });
 
   const requestSidebarRefresh = useCallback(() => {
     refreshCleanupRef.current?.();
@@ -180,22 +191,32 @@ export function AssistantShell({
   };
 
   const handleDeleteConversation = (conversationId: string) => {
-    if (!canDeleteConversation(conversationId)) {
+    if (isListBlocked || !canDeleteConversation(conversationId)) {
       return;
     }
 
+    setDeletingConversationId(conversationId);
     startTransition(async () => {
-      const nextId = await deleteConversationAction(conversationId);
+      try {
+        const nextId = await deleteConversationAction(conversationId);
 
-      if (conversationId === activeConversationId && nextId) {
-        setPendingConversationId(nextId);
-        router.push(`/assistant/${nextId}`);
-        return;
+        if (conversationId === activeConversationId && nextId) {
+          setPendingConversationId(nextId);
+          router.push(`/assistant/${nextId}`);
+          return;
+        }
+
+        const fresh = await listConversationsAction();
+        setConversations(fresh);
+        router.refresh();
+      } catch (error) {
+        logger.error("Conversation deletion failed", {
+          conversationId,
+          error,
+        });
+      } finally {
+        setDeletingConversationId(null);
       }
-
-      const fresh = await listConversationsAction();
-      setConversations(fresh);
-      router.refresh();
     });
   };
 
@@ -221,6 +242,7 @@ export function AssistantShell({
           activeConversationId={activeConversationId}
           pendingConversationId={visiblePendingConversationId}
           isPending={isPending}
+          isDeleteDisabled={isListBlocked}
           isActiveConversationEmpty={isActiveConversationEmpty}
           canDeleteConversation={canDeleteConversation}
           onNewChat={handleNewChat}
