@@ -11,13 +11,15 @@ import { buildAssistantSystemPrompt } from "@/lib/assistant/preferencesContext";
 import { getOnboardingPreferences } from "@/lib/onboarding/queries";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 import { logger } from "@/lib/logger";
+import type { ConversationRow } from "@/lib/assistant/types";
+import type { SupabaseClient } from "@supabase/supabase-js";
 import {
   convertToModelMessages,
   createIdGenerator,
   streamText,
   type UIMessage,
 } from "ai";
-import { NextResponse } from "next/server";
+import { after, NextResponse } from "next/server";
 
 export const maxDuration = 60;
 
@@ -46,6 +48,55 @@ function resolveRequestMessages(body: ChatRequestBody): {
   }
 
   return { conversationId: body.id, messages: null };
+}
+
+type PersistTurnParams = {
+  supabase: SupabaseClient;
+  conversation: ConversationRow;
+  conversationId: string;
+  userId: string;
+  messages: UIMessage[];
+  usage:
+    | {
+        promptTokens?: number;
+        completionTokens?: number;
+      }
+    | undefined;
+};
+
+async function persistAssistantTurn({
+  supabase,
+  conversation,
+  conversationId,
+  userId,
+  messages,
+  usage,
+}: PersistTurnParams): Promise<void> {
+  try {
+    await insertMessages(supabase, conversationId, messages, {
+      model: MODEL_NAME,
+      usage,
+    });
+    revalidatePath("/assistant");
+  } catch (error) {
+    logger.error("Assistant message persistence failed", {
+      conversationId,
+      userId,
+      error,
+    });
+    return;
+  }
+
+  try {
+    await maybeGenerateConversationTitle(supabase, conversation, messages);
+    revalidatePath("/assistant");
+  } catch (error) {
+    logger.error("Assistant title generation failed", {
+      conversationId,
+      userId,
+      error,
+    });
+  }
 }
 
 export async function POST(request: Request) {
@@ -115,6 +166,20 @@ export async function POST(request: Request) {
       );
     }
 
+    // Persist the incoming user message before streaming so a mid-stream
+    // refresh or abort cannot lose it; insertMessages dedups by ui_message_id.
+    if (body.message) {
+      try {
+        await insertMessages(supabase, conversationId, [body.message]);
+      } catch (error) {
+        logger.error("Assistant user message persistence failed", {
+          conversationId,
+          userId,
+          error,
+        });
+      }
+    }
+
     let usage:
       | {
           promptTokens?: number;
@@ -136,34 +201,30 @@ export async function POST(request: Request) {
 
     result.consumeStream();
 
+    // Keep the runtime alive until post-stream persistence settles. Without
+    // this, serverless instances freeze once the response closes and the
+    // pending insert is suspended until a later request thaws the instance.
+    const { promise: persistenceDone, resolve: resolvePersistence } =
+      Promise.withResolvers<void>();
+    after(() => persistenceDone);
+
     return result.toUIMessageStreamResponse({
       originalMessages: validatedMessages,
       generateMessageId: createIdGenerator({ prefix: "msg", size: 16 }),
       onFinish: ({ messages, isAborted }) => {
         if (isAborted) {
+          resolvePersistence();
           return;
         }
 
-        void (async () => {
-          try {
-            await insertMessages(supabase, conversationId, messages, {
-              model: MODEL_NAME,
-              usage,
-            });
-            await maybeGenerateConversationTitle(
-              supabase,
-              conversation,
-              messages,
-            );
-            revalidatePath("/assistant");
-          } catch (error) {
-            logger.error("Assistant post-response work failed", {
-              conversationId,
-              userId,
-              error,
-            });
-          }
-        })();
+        void persistAssistantTurn({
+          supabase,
+          conversation,
+          conversationId,
+          userId,
+          messages,
+          usage,
+        }).finally(resolvePersistence);
       },
     });
   } catch (error) {
