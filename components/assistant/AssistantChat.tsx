@@ -12,6 +12,7 @@ import {
   WELCOME_MESSAGE_ID,
   isConversationEmpty,
 } from "@/lib/assistant/conversationState";
+import { titleFromUserMessage } from "@/lib/assistant/titleUtils";
 
 const WELCOME_MESSAGE: UIMessage = {
   id: WELCOME_MESSAGE_ID,
@@ -62,6 +63,11 @@ export function AssistantChat({
   const seedMessages =
     initialMessages.length > 0 ? initialMessages : [WELCOME_MESSAGE];
 
+  const { setActiveConversationEmpty, requestSidebarRefresh, setOptimisticTitle } =
+    useConversationEmptiness();
+
+  const previousStatusRef = useRef<string | null>(null);
+
   const { messages, sendMessage, status, error } = useChat({
     id: conversationId,
     transport,
@@ -72,7 +78,17 @@ export function AssistantChat({
   const hasUserMessages = messages.some((message) => message.role === "user");
   const showSuggestedQuestions = !hasUserMessages && !isLoading;
 
-  const { setActiveConversationEmpty } = useConversationEmptiness();
+  useEffect(() => {
+    const previousStatus = previousStatusRef.current;
+    previousStatusRef.current = status;
+
+    if (
+      (previousStatus === "streaming" || previousStatus === "submitted") &&
+      status === "ready"
+    ) {
+      requestSidebarRefresh();
+    }
+  }, [status, requestSidebarRefresh]);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -87,6 +103,10 @@ export function AssistantChat({
 
     const trimmed = text.trim();
     setInputValue("");
+
+    if (!hasUserMessages) {
+      setOptimisticTitle(conversationId, titleFromUserMessage(trimmed));
+    }
 
     await sendMessage({ text: trimmed });
   };
