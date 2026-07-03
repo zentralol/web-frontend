@@ -72,9 +72,6 @@ export function AssistantChat({
     id: conversationId,
     transport,
     messages: seedMessages,
-    onFinish: () => {
-      requestSidebarRefresh();
-    },
   });
 
   const isLoading = status === "submitted" || status === "streaming";

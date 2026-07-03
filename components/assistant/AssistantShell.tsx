@@ -16,7 +16,10 @@ import {
   canDeleteConversation as evaluateCanDeleteConversation,
   resolveVisiblePendingId,
 } from "@/lib/assistant/conversationState";
-import { scheduleSidebarRefresh } from "@/lib/assistant/refreshSidebar";
+import {
+  resolveSidebarRefreshDelays,
+  scheduleSidebarRefresh,
+} from "@/lib/assistant/refreshSidebar";
 import type { ConversationSummary } from "@/lib/assistant/types";
 import {
   createConversationAction,
@@ -95,17 +98,13 @@ export function AssistantShell({
           refreshCleanupRef.current = null;
         }
       }
-    });
+    }, resolveSidebarRefreshDelays(waitForTitle));
 
     refreshCleanupRef.current = () => {
       cancelled = true;
       cleanup();
     };
-
-    startTransition(() => {
-      router.refresh();
-    });
-  }, [activeConversationId, router]);
+  }, [activeConversationId]);
 
   const setOptimisticTitle = useCallback(
     (conversationId: string, title: string) => {

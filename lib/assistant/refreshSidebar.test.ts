@@ -1,8 +1,23 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   SIDEBAR_REFRESH_DELAYS_MS,
+  SIDEBAR_SINGLE_REFRESH_DELAYS_MS,
+  resolveSidebarRefreshDelays,
   scheduleSidebarRefresh,
 } from "./refreshSidebar";
+
+describe("resolveSidebarRefreshDelays", () => {
+  it("returns the full polling schedule when waiting for a title", () => {
+    expect(resolveSidebarRefreshDelays(true)).toEqual([
+      0, 1000, 2500, 5000, 8000,
+    ]);
+  });
+
+  it("returns a single immediate refresh when the title already exists", () => {
+    expect(resolveSidebarRefreshDelays(false)).toEqual([0]);
+    expect(SIDEBAR_SINGLE_REFRESH_DELAYS_MS).toEqual([0]);
+  });
+});
 
 describe("scheduleSidebarRefresh", () => {
   beforeEach(() => {
