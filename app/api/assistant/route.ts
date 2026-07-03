@@ -77,7 +77,7 @@ async function persistAssistantTurn({
       model: MODEL_NAME,
       usage,
     });
-    revalidatePath("/assistant");
+    revalidatePath("/assistant", "layout");
   } catch (error) {
     logger.error("Assistant message persistence failed", {
       conversationId,
@@ -89,7 +89,7 @@ async function persistAssistantTurn({
 
   try {
     await maybeGenerateConversationTitle(supabase, conversation, messages);
-    revalidatePath("/assistant");
+    revalidatePath("/assistant", "layout");
   } catch (error) {
     logger.error("Assistant title generation failed", {
       conversationId,

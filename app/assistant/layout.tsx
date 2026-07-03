@@ -28,5 +28,9 @@ export default async function AssistantLayout({
 
   const conversations = await listConversations(supabase, userId);
 
-  return <AssistantShell conversations={conversations}>{children}</AssistantShell>;
+  return (
+    <AssistantShell initialConversations={conversations}>
+      {children}
+    </AssistantShell>
+  );
 }

@@ -21,15 +21,16 @@ import type { ConversationSummary } from "@/lib/assistant/types";
 import {
   createConversationAction,
   deleteConversationAction,
+  listConversationsAction,
 } from "@/lib/assistant/actions";
 
 type AssistantShellProps = {
-  conversations: ConversationSummary[];
+  initialConversations: ConversationSummary[];
   children: ReactNode;
 };
 
 export function AssistantShell({
-  conversations,
+  initialConversations,
   children,
 }: AssistantShellProps) {
   const router = useRouter();
@@ -37,6 +38,8 @@ export function AssistantShell({
   const activeConversationId = params.conversationId;
 
   const [isPending, startTransition] = useTransition();
+  const [conversations, setConversations] =
+    useState<ConversationSummary[]>(initialConversations);
   const [pendingConversationId, setPendingConversationId] = useState<
     string | null
   >(null);
@@ -47,6 +50,15 @@ export function AssistantShell({
   >({});
 
   const refreshCleanupRef = useRef<(() => void) | null>(null);
+  const conversationsRef = useRef(conversations);
+
+  useEffect(() => {
+    conversationsRef.current = conversations;
+  }, [conversations]);
+
+  useEffect(() => {
+    setConversations(initialConversations);
+  }, [initialConversations]);
 
   const visiblePendingConversationId = resolveVisiblePendingId(
     pendingConversationId,
@@ -55,10 +67,45 @@ export function AssistantShell({
 
   const requestSidebarRefresh = useCallback(() => {
     refreshCleanupRef.current?.();
-    refreshCleanupRef.current = scheduleSidebarRefresh(() => {
+
+    const conversationId = activeConversationId;
+    const waitForTitle = !conversationsRef.current.find(
+      (item) => item.id === conversationId,
+    )?.title;
+
+    let cancelled = false;
+
+    const cleanup = scheduleSidebarRefresh(async () => {
+      if (cancelled) {
+        return;
+      }
+
+      const fresh = await listConversationsAction();
+      if (cancelled) {
+        return;
+      }
+
+      setConversations(fresh);
+
+      if (waitForTitle) {
+        const active = fresh.find((item) => item.id === conversationId);
+        if (active?.title) {
+          cancelled = true;
+          refreshCleanupRef.current?.();
+          refreshCleanupRef.current = null;
+        }
+      }
+    });
+
+    refreshCleanupRef.current = () => {
+      cancelled = true;
+      cleanup();
+    };
+
+    startTransition(() => {
       router.refresh();
     });
-  }, [router]);
+  }, [activeConversationId, router]);
 
   const setOptimisticTitle = useCallback(
     (conversationId: string, title: string) => {
@@ -147,6 +194,8 @@ export function AssistantShell({
         return;
       }
 
+      const fresh = await listConversationsAction();
+      setConversations(fresh);
       router.refresh();
     });
   };

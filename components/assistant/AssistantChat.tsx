@@ -66,6 +66,8 @@ export function AssistantChat({
   const { setActiveConversationEmpty, requestSidebarRefresh, setOptimisticTitle } =
     useConversationEmptiness();
 
+  const previousStatusRef = useRef<string | null>(null);
+
   const { messages, sendMessage, status, error } = useChat({
     id: conversationId,
     transport,
@@ -78,6 +80,18 @@ export function AssistantChat({
   const isLoading = status === "submitted" || status === "streaming";
   const hasUserMessages = messages.some((message) => message.role === "user");
   const showSuggestedQuestions = !hasUserMessages && !isLoading;
+
+  useEffect(() => {
+    const previousStatus = previousStatusRef.current;
+    previousStatusRef.current = status;
+
+    if (
+      (previousStatus === "streaming" || previousStatus === "submitted") &&
+      status === "ready"
+    ) {
+      requestSidebarRefresh();
+    }
+  }, [status, requestSidebarRefresh]);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });

@@ -13,50 +13,64 @@ describe("scheduleSidebarRefresh", () => {
     vi.useRealTimers();
   });
 
-  it("calls refresh at each configured delay", () => {
+  it("calls refresh at each configured delay", async () => {
     const refresh = vi.fn();
     scheduleSidebarRefresh(refresh);
 
     expect(refresh).not.toHaveBeenCalled();
 
-    vi.advanceTimersByTime(0);
+    await vi.advanceTimersByTimeAsync(0);
     expect(refresh).toHaveBeenCalledTimes(1);
 
-    vi.advanceTimersByTime(1000);
+    await vi.advanceTimersByTimeAsync(1000);
     expect(refresh).toHaveBeenCalledTimes(2);
 
-    vi.advanceTimersByTime(1500);
+    await vi.advanceTimersByTimeAsync(1500);
     expect(refresh).toHaveBeenCalledTimes(3);
 
-    vi.advanceTimersByTime(2500);
+    await vi.advanceTimersByTimeAsync(2500);
     expect(refresh).toHaveBeenCalledTimes(4);
+
+    await vi.advanceTimersByTimeAsync(3000);
+    expect(refresh).toHaveBeenCalledTimes(5);
   });
 
   it("uses the default delay schedule", () => {
-    expect(SIDEBAR_REFRESH_DELAYS_MS).toEqual([0, 1000, 2500, 5000]);
+    expect(SIDEBAR_REFRESH_DELAYS_MS).toEqual([0, 1000, 2500, 5000, 8000]);
   });
 
-  it("clears pending refreshes when cleanup runs", () => {
+  it("clears pending refreshes when cleanup runs", async () => {
     const refresh = vi.fn();
     const cleanup = scheduleSidebarRefresh(refresh);
 
     cleanup();
-    vi.runAllTimers();
+    await vi.runAllTimersAsync();
 
     expect(refresh).not.toHaveBeenCalled();
   });
 
-  it("supports custom delay schedules", () => {
+  it("supports custom delay schedules", async () => {
     const refresh = vi.fn();
     scheduleSidebarRefresh(refresh, [100, 200]);
 
-    vi.advanceTimersByTime(99);
+    await vi.advanceTimersByTimeAsync(99);
     expect(refresh).not.toHaveBeenCalled();
 
-    vi.advanceTimersByTime(1);
+    await vi.advanceTimersByTimeAsync(1);
     expect(refresh).toHaveBeenCalledTimes(1);
 
-    vi.advanceTimersByTime(200);
+    await vi.advanceTimersByTimeAsync(200);
     expect(refresh).toHaveBeenCalledTimes(2);
+  });
+
+  it("supports async refresh callbacks", async () => {
+    const refresh = vi.fn(async () => {
+      await Promise.resolve();
+    });
+
+    scheduleSidebarRefresh(refresh);
+    await vi.advanceTimersByTimeAsync(0);
+
+    expect(refresh).toHaveBeenCalledTimes(1);
   });
 });
