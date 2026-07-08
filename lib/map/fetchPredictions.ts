@@ -1,4 +1,5 @@
-const DEFAULT_BACKEND_BASE_URL = "http://localhost:3000/api/v1";
+const DEFAULT_BACKEND_BASE_URL = "http://localhost:3000";
+const API_PREFIX = "/api/v1";
 
 const backendBaseUrl =
   process.env.NEXT_PUBLIC_BACKEND_API_BASE_URL ?? DEFAULT_BACKEND_BASE_URL;
@@ -94,6 +95,10 @@ function normalizeBaseUrl(url: string): string {
   return url.endsWith("/") ? url.slice(0, -1) : url;
 }
 
+function buildApiUrl(baseUrl: string, path: string): string {
+  return `${baseUrl}${API_PREFIX}${path}`;
+}
+
 function toForecastTimeLabel(isoLikeValue: string): string {
   const timestamp = new Date(isoLikeValue);
   if (Number.isNaN(timestamp.getTime())) {
@@ -121,7 +126,7 @@ export async function fetchBusynessData(
     const startTime = targetTime;
     const endTime = formatInNewYork(sixHoursLater);
 
-    const currentPromise = fetch(`${baseUrl}/predictions`, {
+    const currentPromise = fetch(buildApiUrl(baseUrl, "/predictions"), {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -132,7 +137,7 @@ export async function fetchBusynessData(
       }),
     });
 
-    const forecastUrl = new URL(`${baseUrl}/predictions/forecast`);
+    const forecastUrl = new URL(buildApiUrl(baseUrl, "/predictions/forecast"));
     forecastUrl.searchParams.set("lat", String(lat));
     forecastUrl.searchParams.set("lng", String(lng));
     forecastUrl.searchParams.set("startTime", startTime);
