@@ -8,6 +8,7 @@ import {
   type MapMouseEvent,
 } from "@vis.gl/react-google-maps";
 import { fetchLocationDetails } from "@/lib/map/fetchLocationDetails";
+import { fetchBusynessData } from "@/lib/map/fetchPredictions";
 import type { LocationSelectionState } from "@/lib/map/types";
 
 const API_KEY = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY;
@@ -67,7 +68,15 @@ function MapContent({
           geocodingLib,
         );
         if (cancelled) return;
-        onSelectionChange({ status: "ready", location });
+        const busynessData = await fetchBusynessData(lat, lng);
+        if (cancelled) return;
+        onSelectionChange({
+          status: "ready",
+          location: {
+            ...location,
+            ...busynessData,
+          },
+        });
       } catch {
         if (cancelled) return;
         onSelectionChange({

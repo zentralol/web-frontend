@@ -5,6 +5,10 @@ function formatCoordinate(value: number) {
   return value.toFixed(5);
 }
 
+function formatBusynessLevel(level: string) {
+  return level.replaceAll("_", " ");
+}
+
 function SectionHeading() {
   return (
     <div className="space-y-2">
@@ -74,6 +78,49 @@ export function LocationPanelContent({
           >
             {selection.location.name ?? "Selected location"}
           </h2>
+
+          <div>
+            <p className="text-xs font-bold uppercase tracking-[0.25em] text-accent/80">
+              Busyness
+            </p>
+            {selection.location.busyness ? (
+              <div className="mt-2 space-y-2 text-sm text-white/55">
+                <p className="text-white/80">
+                  {formatBusynessLevel(selection.location.busyness.level)} ·{" "}
+                  {selection.location.busyness.score}
+                  {selection.location.busyness.period
+                    ? ` (${selection.location.busyness.period})`
+                    : ""}
+                </p>
+                {selection.location.busyness.confidence != null && (
+                  <p>
+                    Confidence:{" "}
+                    {Math.round(selection.location.busyness.confidence * 100)}%
+                  </p>
+                )}
+                {selection.location.forecast &&
+                  selection.location.forecast.length > 0 && (
+                    <div>
+                      <p className="text-xs uppercase tracking-[0.15em] text-accent/70">
+                        Next 6 hours
+                      </p>
+                      <ul className="mt-2 space-y-1 text-white/55">
+                        {selection.location.forecast.map((item) => (
+                          <li key={`${item.timestamp}-${item.level}-${item.score}`}>
+                            {item.timestamp} - {item.score} (
+                            {formatBusynessLevel(item.level)})
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+              </div>
+            ) : (
+              <p className="mt-2 text-sm text-white/55">
+                {selection.location.busynessError ?? "Busyness data unavailable."}
+              </p>
+            )}
+          </div>
 
           {selection.location.address && (
             <div>
