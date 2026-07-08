@@ -99,18 +99,25 @@ function buildApiUrl(baseUrl: string, path: string): string {
   return `${baseUrl}${API_PREFIX}${path}`;
 }
 
-function toForecastTimeLabel(isoLikeValue: string): string {
-  const timestamp = new Date(isoLikeValue);
-  if (Number.isNaN(timestamp.getTime())) {
+const NAIVE_DATE_TIME_PATTERN =
+  /^\d{4}-\d{2}-\d{2}T(\d{2}):(\d{2})/;
+
+export function toForecastTimeLabel(isoLikeValue: string): string {
+  // API convention: date-time digits are Manhattan wall-clock time; a trailing
+  // "Z" is a serialization artifact. Parsing with `new Date()` would reinterpret
+  // the digits in the viewer's local timezone, so read them directly instead.
+  const match = isoLikeValue.match(NAIVE_DATE_TIME_PATTERN);
+  if (!match) {
     return isoLikeValue;
   }
-  const formatter = new Intl.DateTimeFormat("en-US", {
-    timeZone: "America/New_York",
-    hour: "numeric",
-    minute: "2-digit",
-    hour12: true,
-  });
-  return formatter.format(timestamp);
+  const hour = Number(match[1]);
+  const minute = match[2];
+  if (hour > 23) {
+    return isoLikeValue;
+  }
+  const suffix = hour >= 12 ? "PM" : "AM";
+  const hour12 = hour % 12 === 0 ? 12 : hour % 12;
+  return `${hour12}:${minute} ${suffix}`;
 }
 
 export async function fetchBusynessData(
