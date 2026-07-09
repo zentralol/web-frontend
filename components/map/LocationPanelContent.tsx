@@ -129,12 +129,6 @@ export function LocationPanelContent({
                     ? ` (${selection.location.busyness.period})`
                     : ""}
                 </p>
-                {selection.location.busyness.confidence != null && (
-                  <p>
-                    Confidence:{" "}
-                    {Math.round(selection.location.busyness.confidence * 100)}%
-                  </p>
-                )}
                 {selection.location.forecast &&
                   selection.location.forecast.length > 0 && (
                     <div>
