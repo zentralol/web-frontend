@@ -4,6 +4,11 @@ export type SelectedLocation = {
   name?: string;
   address?: string;
   placeId?: string;
+  attractionId?: number;
+  category?: string;
+  neighborhood?: string;
+  description?: string;
+  source?: "map" | "attraction";
   busyness?: {
     score: number;
     level: string;

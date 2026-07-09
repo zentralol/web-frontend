@@ -53,7 +53,7 @@ export function LocationPanelContent({
 
       {selection.status === "idle" && (
         <p className="mt-6 text-sm text-white/55">
-          Click a location on the map to see details here.
+          Click an attraction marker or anywhere on the map to see details here.
         </p>
       )}
 
@@ -78,6 +78,43 @@ export function LocationPanelContent({
           >
             {selection.location.name ?? "Selected location"}
           </h2>
+
+          {selection.location.source === "attraction" && (
+            <>
+              {selection.location.category && (
+                <div>
+                  <p className="text-xs font-bold uppercase tracking-[0.25em] text-accent/80">
+                    Category
+                  </p>
+                  <p className="mt-2 text-sm text-white/55">
+                    {selection.location.category}
+                  </p>
+                </div>
+              )}
+
+              {selection.location.neighborhood && (
+                <div>
+                  <p className="text-xs font-bold uppercase tracking-[0.25em] text-accent/80">
+                    Neighborhood
+                  </p>
+                  <p className="mt-2 text-sm text-white/55">
+                    {selection.location.neighborhood}
+                  </p>
+                </div>
+              )}
+
+              {selection.location.description && (
+                <div>
+                  <p className="text-xs font-bold uppercase tracking-[0.25em] text-accent/80">
+                    Description
+                  </p>
+                  <p className="mt-2 text-sm text-white/55">
+                    {selection.location.description}
+                  </p>
+                </div>
+              )}
+            </>
+          )}
 
           <div>
             <p className="text-xs font-bold uppercase tracking-[0.25em] text-accent/80">
