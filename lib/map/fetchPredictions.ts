@@ -1,3 +1,5 @@
+import type { FetchLike } from "@/lib/backend/authenticatedFetch";
+
 const DEFAULT_BACKEND_BASE_URL = "http://localhost:3000";
 const API_PREFIX = "/api/v1";
 
@@ -123,6 +125,7 @@ export function toForecastTimeLabel(isoLikeValue: string): string {
 export async function fetchBusynessData(
   lat: number,
   lng: number,
+  backendFetch: FetchLike,
 ): Promise<BusynessData> {
   try {
     const baseUrl = normalizeBaseUrl(backendBaseUrl);
@@ -133,7 +136,7 @@ export async function fetchBusynessData(
     const startTime = targetTime;
     const endTime = formatInNewYork(sixHoursLater);
 
-    const currentPromise = fetch(buildApiUrl(baseUrl, "/predictions"), {
+    const currentPromise = backendFetch(buildApiUrl(baseUrl, "/predictions"), {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -151,7 +154,7 @@ export async function fetchBusynessData(
     forecastUrl.searchParams.set("endTime", endTime);
     forecastUrl.searchParams.set("limit", "6");
 
-    const forecastPromise = fetch(forecastUrl.toString());
+    const forecastPromise = backendFetch(forecastUrl.toString());
 
     const [currentResponse, forecastResponse] = await Promise.all([
       currentPromise,

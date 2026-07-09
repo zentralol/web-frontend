@@ -9,6 +9,7 @@ import {
 } from "@vis.gl/react-google-maps";
 import { fetchLocationDetails } from "@/lib/map/fetchLocationDetails";
 import { fetchBusynessData } from "@/lib/map/fetchPredictions";
+import { useAuthenticatedBackendFetch } from "@/lib/backend/useAuthenticatedBackendFetch";
 import type { LocationSelectionState } from "@/lib/map/types";
 
 const API_KEY = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY;
@@ -32,6 +33,7 @@ function MapContent({
 }: MapViewProps) {
   const placesLib = useMapsLibrary("places");
   const geocodingLib = useMapsLibrary("geocoding");
+  const backendFetch = useAuthenticatedBackendFetch();
   const [pendingClick, setPendingClick] = useState<PendingClick | null>(null);
 
   const handleClick = useCallback(
@@ -68,7 +70,7 @@ function MapContent({
           geocodingLib,
         );
         if (cancelled) return;
-        const busynessData = await fetchBusynessData(lat, lng);
+        const busynessData = await fetchBusynessData(lat, lng, backendFetch);
         if (cancelled) return;
         onSelectionChange({
           status: "ready",
@@ -91,7 +93,7 @@ function MapContent({
     return () => {
       cancelled = true;
     };
-  }, [pendingClick, placesLib, geocodingLib, onSelectionChange]);
+  }, [pendingClick, placesLib, geocodingLib, onSelectionChange, backendFetch]);
 
   return (
     <Map
