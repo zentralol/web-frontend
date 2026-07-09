@@ -125,9 +125,6 @@ export function LocationPanelContent({
                 <p className="text-white/80">
                   {formatBusynessLevel(selection.location.busyness.level)} ·{" "}
                   {selection.location.busyness.score}
-                  {selection.location.busyness.period
-                    ? ` (${selection.location.busyness.period})`
-                    : ""}
                 </p>
                 {selection.location.forecast &&
                   selection.location.forecast.length > 0 && (
@@ -138,8 +135,7 @@ export function LocationPanelContent({
                       <ul className="mt-2 space-y-1 text-white/55">
                         {selection.location.forecast.map((item) => (
                           <li key={`${item.timestamp}-${item.level}-${item.score}`}>
-                            {item.timestamp} - {item.score} (
-                            {formatBusynessLevel(item.level)})
+                            {item.score} ({formatBusynessLevel(item.level)})
                           </li>
                         ))}
                       </ul>
