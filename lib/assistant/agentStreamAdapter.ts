@@ -1,5 +1,5 @@
 import { createUIMessageStream } from "ai";
-import type { UIMessageChunk } from "ai";
+import type { UIMessage, UIMessageChunk } from "ai";
 
 // The agent (via the Express gateway) streams Zentra SSE events. useChat speaks
 // the AI SDK UI-message-stream protocol. Tool results remain lifecycle events;
@@ -22,6 +22,12 @@ export type ZentraEvent = {
 };
 
 export const PLACE_CARDS_DATA_TYPE = "data-places";
+export const TOOL_STATUS_DATA_TYPE = "data-tool-status";
+
+export type ToolStatusData = {
+  toolName: string;
+  status: "running" | "done";
+};
 
 export type PlaceCardItem = {
   candidateId: string;
@@ -108,6 +114,32 @@ export class ZentraUiTranslator {
       case "done":
         this.ended = true;
         return this.closeText();
+      case "tool_started": {
+        const toolName = event.tool_name;
+        if (!toolName) {
+          return [];
+        }
+        return [
+          {
+            type: TOOL_STATUS_DATA_TYPE,
+            id: this.generateId(),
+            data: { toolName, status: "running" },
+          },
+        ];
+      }
+      case "tool_finished": {
+        const toolName = event.tool_name;
+        if (!toolName) {
+          return [];
+        }
+        return [
+          {
+            type: TOOL_STATUS_DATA_TYPE,
+            id: this.generateId(),
+            data: { toolName, status: "done" },
+          },
+        ];
+      }
       default:
         return [];
     }
@@ -144,6 +176,29 @@ export class ZentraUiTranslator {
     this.textId = null;
     return [chunk];
   }
+}
+
+/** Derive the currently running tool from transient tool-status parts. */
+export function getActiveToolFromParts(parts: UIMessage["parts"]): string | null {
+  const stack: string[] = [];
+  for (const part of parts) {
+    if (part.type !== TOOL_STATUS_DATA_TYPE) {
+      continue;
+    }
+    const data = (part as { data?: ToolStatusData }).data;
+    if (!data?.toolName) {
+      continue;
+    }
+    if (data.status === "running") {
+      stack.push(data.toolName);
+    } else if (data.status === "done") {
+      const index = stack.lastIndexOf(data.toolName);
+      if (index !== -1) {
+        stack.splice(index, 1);
+      }
+    }
+  }
+  return stack.length > 0 ? stack[stack.length - 1]! : null;
 }
 
 /** Convert the agent's validated recommendation event into card data. */

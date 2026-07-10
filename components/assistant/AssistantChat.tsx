@@ -10,7 +10,9 @@ import { useGeolocation } from "@/lib/geo/useGeolocation";
 import { spaceGrotesk } from "@/app/ui/fonts";
 import { MarkdownMessage } from "@/components/assistant/MarkdownMessage";
 import { PlaceCards } from "@/components/assistant/PlaceCards";
+import { ThinkingIndicator } from "@/components/assistant/ThinkingIndicator";
 import {
+  getActiveToolFromParts,
   PLACE_CARDS_DATA_TYPE,
   type PlaceCardsData,
 } from "@/lib/assistant/agentStreamAdapter";
@@ -114,7 +116,14 @@ export function AssistantChat({
   };
 
   const lastMessage = messages[messages.length - 1];
-  const showThinking = status === "submitted";
+  const lastAssistantMessage = [...messages]
+    .reverse()
+    .find((message) => message.role === "assistant");
+  const activeTool = lastAssistantMessage
+    ? getActiveToolFromParts(lastAssistantMessage.parts)
+    : null;
+  const showThinking =
+    status === "submitted" || (status === "streaming" && activeTool !== null);
 
   return (
     <div className="flex min-h-0 min-w-0 max-w-full flex-1 flex-col overflow-hidden px-4 py-6 sm:px-6">
@@ -137,7 +146,8 @@ export function AssistantChat({
             const isStreamingAssistant =
               !isUser &&
               status === "streaming" &&
-              message.id === lastMessage?.id;
+              message.id === lastMessage?.id &&
+              !activeTool;
 
             if (!isUser && !content && status === "submitted") {
               return null;
@@ -209,16 +219,7 @@ export function AssistantChat({
             </div>
           )}
 
-          {showThinking && (
-            <div className="mr-auto flex max-w-[85%] gap-3">
-              <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-white/10 bg-white/5 text-accent">
-                <Bot className="h-3.5 w-3.5" />
-              </div>
-              <div className="rounded-xl border border-white/5 bg-surface px-4 py-3 text-sm text-white/55">
-                Thinking...
-              </div>
-            </div>
-          )}
+          {showThinking && <ThinkingIndicator />}
 
           {error && (
             <div className="mx-auto flex max-w-[90%] items-start gap-3 rounded-xl border border-red-500/30 bg-red-500/10 p-4 text-sm text-red-200">

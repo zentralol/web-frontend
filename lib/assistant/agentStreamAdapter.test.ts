@@ -3,9 +3,11 @@ import type { UIMessageChunk } from "ai";
 import {
   buildRecommendationCards,
   createAgentUiMessageStream,
+  getActiveToolFromParts,
   parsePersistedPlaceCards,
   parseZentraSse,
   PLACE_CARDS_DATA_TYPE,
+  TOOL_STATUS_DATA_TYPE,
   translateZentraSse,
   ZentraUiTranslator,
 } from "./agentStreamAdapter";
@@ -49,7 +51,7 @@ describe("translateZentraSse", () => {
     ]);
   });
 
-  it("ignores warnings and tool lifecycle events", () => {
+  it("emits tool lifecycle data chunks and still maps text deltas", () => {
     counter = 0;
     const sse =
       frame({ type: "warning", message: "heads up" }) +
@@ -61,9 +63,19 @@ describe("translateZentraSse", () => {
     const chunks = translateZentraSse(sse, stableId);
 
     expect(chunks).toEqual([
-      { type: "text-start", id: "id-1" },
-      { type: "text-delta", id: "id-1", delta: "hi" },
-      { type: "text-end", id: "id-1" },
+      {
+        type: TOOL_STATUS_DATA_TYPE,
+        id: "id-1",
+        data: { toolName: "get_user_preferences", status: "running" },
+      },
+      { type: "text-start", id: "id-2" },
+      { type: "text-delta", id: "id-2", delta: "hi" },
+      {
+        type: TOOL_STATUS_DATA_TYPE,
+        id: "id-3",
+        data: { toolName: "get_user_preferences", status: "done" },
+      },
+      { type: "text-end", id: "id-2" },
     ]);
   });
 
@@ -226,6 +238,53 @@ describe("recommendation cards", () => {
       "google:place-a",
       "google:place-c",
     ]);
+  });
+});
+
+describe("getActiveToolFromParts", () => {
+  it("returns the active tool from the latest running status", () => {
+    const parts = [
+      {
+        type: TOOL_STATUS_DATA_TYPE,
+        data: { toolName: "get_user_preferences", status: "running" },
+      },
+    ] as Parameters<typeof getActiveToolFromParts>[0];
+
+    expect(getActiveToolFromParts(parts)).toBe("get_user_preferences");
+  });
+
+  it("clears the active tool after a matching finished event", () => {
+    const parts = [
+      {
+        type: TOOL_STATUS_DATA_TYPE,
+        data: { toolName: "get_user_preferences", status: "running" },
+      },
+      {
+        type: TOOL_STATUS_DATA_TYPE,
+        data: { toolName: "get_user_preferences", status: "done" },
+      },
+    ] as Parameters<typeof getActiveToolFromParts>[0];
+
+    expect(getActiveToolFromParts(parts)).toBeNull();
+  });
+
+  it("tracks nested tool calls in order", () => {
+    const parts = [
+      {
+        type: TOOL_STATUS_DATA_TYPE,
+        data: { toolName: "tool_a", status: "running" },
+      },
+      {
+        type: TOOL_STATUS_DATA_TYPE,
+        data: { toolName: "tool_b", status: "running" },
+      },
+      {
+        type: TOOL_STATUS_DATA_TYPE,
+        data: { toolName: "tool_b", status: "done" },
+      },
+    ] as Parameters<typeof getActiveToolFromParts>[0];
+
+    expect(getActiveToolFromParts(parts)).toBe("tool_a");
   });
 });
 
