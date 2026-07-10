@@ -80,6 +80,7 @@ export function parseZentraSse(buffer: string): {
 export class ZentraUiTranslator {
   private textId: string | null = null;
   private ended = false;
+  private needsSegmentSeparator = false;
 
   constructor(private readonly generateId: () => string = () => crypto.randomUUID()) {}
 
@@ -161,11 +162,16 @@ export class ZentraUiTranslator {
     }
 
     const chunks: UIMessageChunk[] = [];
+    let delta = event.text;
     if (this.textId === null) {
       this.textId = this.generateId();
       chunks.push({ type: "text-start", id: this.textId });
+      if (this.needsSegmentSeparator) {
+        delta = `\n\n${delta}`;
+        this.needsSegmentSeparator = false;
+      }
     }
-    chunks.push({ type: "text-delta", id: this.textId, delta: event.text });
+    chunks.push({ type: "text-delta", id: this.textId, delta });
     return chunks;
   }
 
@@ -175,6 +181,7 @@ export class ZentraUiTranslator {
     }
     const chunk: UIMessageChunk = { type: "text-end", id: this.textId };
     this.textId = null;
+    this.needsSegmentSeparator = true;
     return [chunk];
   }
 }

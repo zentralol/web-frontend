@@ -106,6 +106,51 @@ describe("translateZentraSse", () => {
     ]);
   });
 
+  it("inserts a paragraph break before text after a closed segment", () => {
+    counter = 0;
+    const sse =
+      frame({
+        type: "message_delta",
+        text: "Let me check what's around you and how busy it is",
+      }) +
+      frame({ type: "tool_started", tool_name: "get_nearby_places" }) +
+      frame({ type: "tool_finished", tool_name: "get_nearby_places" }) +
+      frame({
+        type: "message_delta",
+        text: "Great news — it's very quiet in your area right now!",
+      }) +
+      frame({ type: "done" });
+
+    const chunks = translateZentraSse(sse, stableId);
+
+    expect(chunks).toEqual([
+      { type: "text-start", id: "id-1" },
+      {
+        type: "text-delta",
+        id: "id-1",
+        delta: "Let me check what's around you and how busy it is",
+      },
+      { type: "text-end", id: "id-1" },
+      {
+        type: TOOL_STATUS_DATA_TYPE,
+        id: "id-2",
+        data: { toolName: "get_nearby_places", status: "running" },
+      },
+      {
+        type: TOOL_STATUS_DATA_TYPE,
+        id: "id-3",
+        data: { toolName: "get_nearby_places", status: "done" },
+      },
+      { type: "text-start", id: "id-4" },
+      {
+        type: "text-delta",
+        id: "id-4",
+        delta: "\n\nGreat news — it's very quiet in your area right now!",
+      },
+      { type: "text-end", id: "id-4" },
+    ]);
+  });
+
   it("emits an error chunk for a Zentra error event", () => {
     counter = 0;
     const sse =
