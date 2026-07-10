@@ -4,6 +4,23 @@ export type SelectedLocation = {
   name?: string;
   address?: string;
   placeId?: string;
+  attractionId?: number;
+  category?: string;
+  neighborhood?: string;
+  description?: string;
+  source?: "map" | "attraction";
+  busyness?: {
+    score: number;
+    level: string;
+    period?: string;
+    confidence?: number;
+  };
+  forecast?: Array<{
+    timestamp: string;
+    score: number;
+    level: string;
+  }>;
+  busynessError?: string;
 };
 
 export type LocationSelectionState =
