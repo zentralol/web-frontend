@@ -14,16 +14,36 @@ const BACKEND_BASE_URL = (
 
 const CHAT_STREAM_PATH = "/api/v1/chat/stream";
 
+// Pull device coordinates out of the per-message body (see AssistantChat's
+// sendMessage call). Only finite numbers are forwarded.
+function readCoords(body: unknown): { lat: number; lng: number } | null {
+  if (!body || typeof body !== "object") {
+    return null;
+  }
+  const { lat, lng } = body as { lat?: unknown; lng?: unknown };
+  if (
+    typeof lat === "number" &&
+    Number.isFinite(lat) &&
+    typeof lng === "number" &&
+    Number.isFinite(lng)
+  ) {
+    return { lat, lng };
+  }
+  return null;
+}
+
 export function createAgentChatTransport(
   backendFetch: FetchLike,
 ): ChatTransport<UIMessage> {
   return {
-    async sendMessages({ chatId, messages, abortSignal }) {
+    async sendMessages({ chatId, messages, abortSignal, body }) {
       const lastMessage = messages.at(-1);
       const message = lastMessage ? extractMessageText(lastMessage).trim() : "";
       if (!message) {
         throw new Error("Cannot send an empty message.");
       }
+
+      const coords = readCoords(body);
 
       const response = await backendFetch(`${BACKEND_BASE_URL}${CHAT_STREAM_PATH}`, {
         method: "POST",
@@ -32,6 +52,7 @@ export function createAgentChatTransport(
           message,
           clientType: "web",
           conversationId: chatId,
+          ...(coords ?? {}),
         }),
         signal: abortSignal,
       });
