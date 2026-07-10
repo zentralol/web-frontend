@@ -17,7 +17,7 @@ import {
 } from "@/lib/assistant/agentStreamAdapter";
 import { useConversationEmptiness } from "@/components/assistant/conversationEmptinessContext";
 import { extractMessageText } from "@/lib/assistant/mappers";
-import { useStreamStall } from "@/lib/assistant/useStreamStall";
+import { useAssistantThinking } from "@/lib/assistant/useStreamStall";
 import {
   WELCOME_MESSAGE_ID,
   isConversationEmpty,
@@ -138,21 +138,21 @@ export function AssistantChat({
   const showSuggestedQuestions = !hasUserMessages && !isLoading;
 
   const lastMessage = messages[messages.length - 1];
+  const isActiveTurn = status === "submitted" || status === "streaming";
+  const activeAssistantMessageId =
+    isActiveTurn && lastMessage?.role === "assistant" ? lastMessage.id : null;
   const lastAssistantMessage = [...messages]
     .reverse()
     .find((message) => message.role === "assistant");
   const activeTool = lastAssistantMessage
     ? getActiveToolFromParts(lastAssistantMessage.parts)
     : null;
-  const isStreamStalled = useStreamStall(status, messages);
-  const showThinking =
-    status === "submitted" ||
-    activeTool !== null ||
-    isStreamStalled;
-
-  const isActiveTurn = status === "submitted" || status === "streaming";
-  const activeAssistantMessageId =
-    isActiveTurn && lastMessage?.role === "assistant" ? lastMessage.id : null;
+  const showThinking = useAssistantThinking(
+    status,
+    messages,
+    activeAssistantMessageId,
+    activeTool,
+  );
   const needsThinkingPlaceholder =
     showThinking && status === "submitted" && activeAssistantMessageId === null;
 
