@@ -3,7 +3,9 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useChat } from "@ai-sdk/react";
 import { AlertCircle, Bot, Send, User } from "lucide-react";
-import { DefaultChatTransport, type UIMessage } from "ai";
+import { type UIMessage } from "ai";
+import { createAgentChatTransport } from "@/lib/assistant/agentChatTransport";
+import { useAuthenticatedBackendFetch } from "@/lib/backend/useAuthenticatedBackendFetch";
 import { spaceGrotesk } from "@/app/ui/fonts";
 import { MarkdownMessage } from "@/components/assistant/MarkdownMessage";
 import { useConversationEmptiness } from "@/components/assistant/conversationEmptinessContext";
@@ -44,20 +46,10 @@ export function AssistantChat({
   const [inputValue, setInputValue] = useState("");
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
+  const backendFetch = useAuthenticatedBackendFetch();
   const transport = useMemo(
-    () =>
-      new DefaultChatTransport({
-        api: "/api/assistant",
-        prepareSendMessagesRequest({ id, messages }) {
-          return {
-            body: {
-              id,
-              message: messages[messages.length - 1],
-            },
-          };
-        },
-      }),
-    [],
+    () => createAgentChatTransport(backendFetch),
+    [backendFetch],
   );
 
   const seedMessages =

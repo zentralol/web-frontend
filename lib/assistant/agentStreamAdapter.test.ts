@@ -1,5 +1,7 @@
 import { describe, expect, it } from "vitest";
+import type { UIMessageChunk } from "ai";
 import {
+  createAgentUiMessageStream,
   parseZentraSse,
   translateZentraSse,
   ZentraUiTranslator,
@@ -87,6 +89,58 @@ describe("translateZentraSse", () => {
       { type: "text-delta", id: "id-1", delta: "hi" },
       { type: "text-end", id: "id-1" },
     ]);
+  });
+});
+
+describe("createAgentUiMessageStream", () => {
+  function sseBody(payload: string): ReadableStream<Uint8Array> {
+    const encoder = new TextEncoder();
+    // Split mid-frame across two chunks to exercise buffering.
+    const mid = Math.floor(payload.length / 2);
+    const parts = [payload.slice(0, mid), payload.slice(mid)];
+    return new ReadableStream({
+      start(controller) {
+        for (const part of parts) {
+          controller.enqueue(encoder.encode(part));
+        }
+        controller.close();
+      },
+    });
+  }
+
+  async function collect(
+    stream: ReadableStream<UIMessageChunk>,
+  ): Promise<UIMessageChunk[]> {
+    const chunks: UIMessageChunk[] = [];
+    const reader = stream.getReader();
+    for (;;) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      chunks.push(value);
+    }
+    return chunks;
+  }
+
+  it("produces a valid text UI message stream from a chunked agent SSE body", async () => {
+    const payload =
+      frame({ type: "message_delta", text: "Hello " }) +
+      frame({ type: "message_delta", text: "there" }) +
+      frame({ type: "done", conversation_id: "c1" });
+
+    const chunks = await collect(createAgentUiMessageStream(sseBody(payload)));
+    const types = chunks.map((chunk) => chunk.type);
+
+    // A text part is delimited by text-start ... text-end; useChat builds the
+    // assistant message from these (start/finish are optional enrichment).
+    expect(types[0]).toBe("text-start");
+    expect(types.at(-1)).toBe("text-end");
+    expect(types.filter((type) => type === "text-delta")).toHaveLength(2);
+
+    const text = chunks
+      .filter((chunk) => chunk.type === "text-delta")
+      .map((chunk) => (chunk as { delta: string }).delta)
+      .join("");
+    expect(text).toBe("Hello there");
   });
 });
 
