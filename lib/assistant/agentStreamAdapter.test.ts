@@ -1,8 +1,10 @@
 import { describe, expect, it } from "vitest";
 import type { UIMessageChunk } from "ai";
 import {
+  buildPlaceCards,
   createAgentUiMessageStream,
   parseZentraSse,
+  PLACE_CARDS_DATA_TYPE,
   translateZentraSse,
   ZentraUiTranslator,
 } from "./agentStreamAdapter";
@@ -141,6 +143,97 @@ describe("createAgentUiMessageStream", () => {
       .map((chunk) => (chunk as { delta: string }).delta)
       .join("");
     expect(text).toBe("Hello there");
+  });
+});
+
+describe("buildPlaceCards", () => {
+  const poiEvent = {
+    type: "tool_finished",
+    tool_name: "get_nearby_places",
+    result: {
+      status: "success",
+      data: {
+        places: [
+          {
+            name: "Blue Bottle Coffee",
+            address: "1 Main St",
+            primary_type: "Coffee shop",
+            lat: 40.7585,
+            lng: -73.986,
+            rating: 4.5,
+            distance_km: 0.3,
+          },
+          { name: "No Coords Cafe", address: "2 Main St" }, // dropped
+        ],
+      },
+    },
+  };
+
+  it("maps a nearby-places result to card items with coordinates", () => {
+    const cards = buildPlaceCards(poiEvent);
+    expect(cards).toEqual({
+      source: "nearby",
+      items: [
+        {
+          name: "Blue Bottle Coffee",
+          lat: 40.7585,
+          lng: -73.986,
+          subtitle: "1 Main St",
+          detail: "Coffee shop · ★ 4.5 · 0.3 km",
+        },
+      ],
+    });
+  });
+
+  it("maps an attractions result", () => {
+    const cards = buildPlaceCards({
+      type: "tool_finished",
+      tool_name: "get_nearest_attractions",
+      result: {
+        status: "success",
+        data: {
+          attractions: [
+            {
+              name: "The High Line",
+              neighborhood: "Chelsea",
+              category: "Park",
+              lat: 40.748,
+              lng: -74.0048,
+              distance_km: 1.2,
+            },
+          ],
+        },
+      },
+    });
+    expect(cards?.source).toBe("attractions");
+    expect(cards?.items[0]).toMatchObject({
+      name: "The High Line",
+      lat: 40.748,
+      lng: -74.0048,
+      subtitle: "Chelsea",
+    });
+  });
+
+  it("returns null for other tools or non-success results", () => {
+    expect(buildPlaceCards({ type: "tool_finished", tool_name: "predict_crowd_level" })).toBeNull();
+    expect(
+      buildPlaceCards({
+        type: "tool_finished",
+        tool_name: "get_nearby_places",
+        result: { status: "warning" },
+      }),
+    ).toBeNull();
+  });
+
+  it("emits a data-places chunk through the translator", () => {
+    const chunks = translateZentraSse(
+      `data: ${JSON.stringify(poiEvent)}\n\n` + frame({ type: "done" }),
+    );
+    const dataChunk = chunks.find((c) => c.type === PLACE_CARDS_DATA_TYPE) as
+      | { type: string; data: { items: unknown[] } }
+      | undefined;
+    expect(dataChunk).toBeDefined();
+    expect(dataChunk?.data.items).toHaveLength(1);
   });
 });
 

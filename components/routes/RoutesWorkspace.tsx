@@ -1,10 +1,12 @@
 "use client";
 
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
+import { useSearchParams, type ReadonlyURLSearchParams } from "next/navigation";
 import { APIProvider } from "@vis.gl/react-google-maps";
 import RouteActionBar from "@/components/routes/RouteActionBar";
 import RouteMap from "@/components/routes/RouteMap";
 import RouteSidebar from "@/components/routes/RouteSidebar";
+import { requestCurrentPosition } from "@/lib/geo/requestCurrentPosition";
 import { fetchRouteOptions } from "@/lib/routes/fetchRouteOptions";
 import {
   DEFAULT_DESTINATION,
@@ -22,10 +24,52 @@ function locationsEqual(a: RouteLocation, b: RouteLocation): boolean {
   return a.lat === b.lat && a.lng === b.lng;
 }
 
+// Read a preset destination from the "take me there" deep link
+// (/routes?destLat=..&destLng=..&destLabel=..).
+function destinationFromParams(
+  params: ReadonlyURLSearchParams,
+): RouteLocation | null {
+  const latRaw = params.get("destLat");
+  const lngRaw = params.get("destLng");
+  const label = params.get("destLabel");
+  if (!latRaw || !lngRaw || !label) {
+    return null;
+  }
+  const lat = Number(latRaw);
+  const lng = Number(lngRaw);
+  if (!Number.isFinite(lat) || !Number.isFinite(lng)) {
+    return null;
+  }
+  return { lat, lng, label };
+}
+
 export default function RoutesWorkspace() {
+  const searchParams = useSearchParams();
+  const prefilledDestination = destinationFromParams(searchParams);
+
   const [origin, setOrigin] = useState<RouteLocation>(DEFAULT_ORIGIN);
-  const [destination, setDestination] =
-    useState<RouteLocation>(DEFAULT_DESTINATION);
+  const [destination, setDestination] = useState<RouteLocation>(
+    prefilledDestination ?? DEFAULT_DESTINATION,
+  );
+
+  // When arriving via a "take me there" link, best-effort set the origin to the
+  // user's current location (async, so it never blocks or fails the page).
+  useEffect(() => {
+    if (!prefilledDestination) return;
+    let cancelled = false;
+    requestCurrentPosition()
+      .then((coords) => {
+        if (!cancelled) {
+          setOrigin({ lat: coords.lat, lng: coords.lng, label: "Current location" });
+        }
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+    // Mount-only: prefilledDestination is derived from the initial URL.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
   const [routes, setRoutes] = useState<RouteOption[]>([]);
   const [selectedMode, setSelectedMode] = useState<TravelMode>("walk");
   const [loading, setLoading] = useState(false);
