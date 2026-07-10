@@ -6,6 +6,7 @@ import { AlertCircle, Bot, Send, User } from "lucide-react";
 import { type UIMessage } from "ai";
 import { createAgentChatTransport } from "@/lib/assistant/agentChatTransport";
 import { useAuthenticatedBackendFetch } from "@/lib/backend/useAuthenticatedBackendFetch";
+import { useGeolocation } from "@/lib/geo/useGeolocation";
 import { spaceGrotesk } from "@/app/ui/fonts";
 import { MarkdownMessage } from "@/components/assistant/MarkdownMessage";
 import { useConversationEmptiness } from "@/components/assistant/conversationEmptinessContext";
@@ -51,6 +52,7 @@ export function AssistantChat({
     () => createAgentChatTransport(backendFetch),
     [backendFetch],
   );
+  const { coords } = useGeolocation();
 
   const seedMessages =
     initialMessages.length > 0 ? initialMessages : [WELCOME_MESSAGE];
@@ -100,7 +102,10 @@ export function AssistantChat({
       setOptimisticTitle(conversationId, titleFromUserMessage(trimmed));
     }
 
-    await sendMessage({ text: trimmed });
+    await sendMessage(
+      { text: trimmed },
+      coords ? { body: { lat: coords.lat, lng: coords.lng } } : undefined,
+    );
   };
 
   const lastMessage = messages[messages.length - 1];
