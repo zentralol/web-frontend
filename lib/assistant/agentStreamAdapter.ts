@@ -120,6 +120,7 @@ export class ZentraUiTranslator {
           return [];
         }
         return [
+          ...this.closeText(),
           {
             type: TOOL_STATUS_DATA_TYPE,
             id: this.generateId(),

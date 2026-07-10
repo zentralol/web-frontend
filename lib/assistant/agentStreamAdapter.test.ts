@@ -79,6 +79,33 @@ describe("translateZentraSse", () => {
     ]);
   });
 
+  it("closes an open text block when a tool starts mid-stream", () => {
+    counter = 0;
+    const sse =
+      frame({ type: "message_delta", text: "Let me check" }) +
+      frame({ type: "tool_started", tool_name: "submit_recommendations" }) +
+      frame({ type: "tool_finished", tool_name: "submit_recommendations" }) +
+      frame({ type: "done" });
+
+    const chunks = translateZentraSse(sse, stableId);
+
+    expect(chunks).toEqual([
+      { type: "text-start", id: "id-1" },
+      { type: "text-delta", id: "id-1", delta: "Let me check" },
+      { type: "text-end", id: "id-1" },
+      {
+        type: TOOL_STATUS_DATA_TYPE,
+        id: "id-2",
+        data: { toolName: "submit_recommendations", status: "running" },
+      },
+      {
+        type: TOOL_STATUS_DATA_TYPE,
+        id: "id-3",
+        data: { toolName: "submit_recommendations", status: "done" },
+      },
+    ]);
+  });
+
   it("emits an error chunk for a Zentra error event", () => {
     counter = 0;
     const sse =

@@ -18,6 +18,7 @@ import {
 } from "@/lib/assistant/agentStreamAdapter";
 import { useConversationEmptiness } from "@/components/assistant/conversationEmptinessContext";
 import { extractMessageText } from "@/lib/assistant/mappers";
+import { useStreamStall } from "@/lib/assistant/useStreamStall";
 import {
   WELCOME_MESSAGE_ID,
   isConversationEmpty,
@@ -79,6 +80,19 @@ export function AssistantChat({
   const hasUserMessages = messages.some((message) => message.role === "user");
   const showSuggestedQuestions = !hasUserMessages && !isLoading;
 
+  const lastMessage = messages[messages.length - 1];
+  const lastAssistantMessage = [...messages]
+    .reverse()
+    .find((message) => message.role === "assistant");
+  const activeTool = lastAssistantMessage
+    ? getActiveToolFromParts(lastAssistantMessage.parts)
+    : null;
+  const isStreamStalled = useStreamStall(status, messages);
+  const showThinking =
+    status === "submitted" ||
+    activeTool !== null ||
+    isStreamStalled;
+
   useEffect(() => {
     const previousStatus = previousStatusRef.current;
     previousStatusRef.current = status;
@@ -93,7 +107,7 @@ export function AssistantChat({
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages, status]);
+  }, [messages, status, showThinking]);
 
   useEffect(() => {
     setActiveConversationEmpty(isConversationEmpty(messages));
@@ -114,16 +128,6 @@ export function AssistantChat({
       coords ? { body: { lat: coords.lat, lng: coords.lng } } : undefined,
     );
   };
-
-  const lastMessage = messages[messages.length - 1];
-  const lastAssistantMessage = [...messages]
-    .reverse()
-    .find((message) => message.role === "assistant");
-  const activeTool = lastAssistantMessage
-    ? getActiveToolFromParts(lastAssistantMessage.parts)
-    : null;
-  const showThinking =
-    status === "submitted" || (status === "streaming" && activeTool !== null);
 
   return (
     <div className="flex min-h-0 min-w-0 max-w-full flex-1 flex-col overflow-hidden px-4 py-6 sm:px-6">
@@ -147,7 +151,7 @@ export function AssistantChat({
               !isUser &&
               status === "streaming" &&
               message.id === lastMessage?.id &&
-              !activeTool;
+              !showThinking;
 
             if (!isUser && !content && status === "submitted") {
               return null;
