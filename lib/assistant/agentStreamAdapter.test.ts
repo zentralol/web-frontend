@@ -5,6 +5,7 @@ import {
   createAgentUiMessageStream,
   parseZentraSse,
   PLACE_CARDS_DATA_TYPE,
+  selectRecommendedPlaceCards,
   translateZentraSse,
   ZentraUiTranslator,
 } from "./agentStreamAdapter";
@@ -225,15 +226,131 @@ describe("buildPlaceCards", () => {
     ).toBeNull();
   });
 
-  it("emits a data-places chunk through the translator", () => {
+  it("does not emit candidate cards when the model does not recommend them", () => {
     const chunks = translateZentraSse(
       `data: ${JSON.stringify(poiEvent)}\n\n` + frame({ type: "done" }),
     );
     const dataChunk = chunks.find((c) => c.type === PLACE_CARDS_DATA_TYPE) as
       | { type: string; data: { items: unknown[] } }
       | undefined;
-    expect(dataChunk).toBeDefined();
-    expect(dataChunk?.data.items).toHaveLength(1);
+    expect(dataChunk).toBeUndefined();
+  });
+
+  it("emits only model-recommended cards in natural-language order", () => {
+    const chunks = translateZentraSse(
+      `data: ${JSON.stringify(poiEvent)}\n\n` +
+        frame({
+          type: "tool_finished",
+          tool_name: "get_nearest_attractions",
+          result: {
+            status: "success",
+            data: {
+              attractions: [
+                {
+                  name: "The High Line",
+                  neighborhood: "Chelsea",
+                  category: "Park",
+                  lat: 40.748,
+                  lng: -74.0048,
+                  distance_km: 1.2,
+                },
+                {
+                  name: "Washington Square Park",
+                  neighborhood: "Greenwich Village",
+                  category: "Park",
+                  lat: 40.7308,
+                  lng: -73.9973,
+                },
+              ],
+            },
+          },
+        }) +
+        frame({
+          type: "message_delta",
+          text: "I recommend The High Line first, followed by Blue Bottle Coffee.",
+        }) +
+        frame({ type: "done" }),
+    );
+    const dataChunk = chunks.find((c) => c.type === PLACE_CARDS_DATA_TYPE) as
+      | { type: string; data: { items: Array<{ name: string }> } }
+      | undefined;
+
+    expect(dataChunk?.data.items.map((item) => item.name)).toEqual([
+      "The High Line",
+      "Blue Bottle Coffee",
+    ]);
+  });
+});
+
+describe("selectRecommendedPlaceCards", () => {
+  const candidates = [
+    {
+      name: "Blue Bottle Coffee",
+      lat: 40.7585,
+      lng: -73.986,
+      subtitle: "1 Main St",
+      detail: "Coffee shop",
+    },
+    {
+      name: "The High Line",
+      lat: 40.748,
+      lng: -74.0048,
+      subtitle: "Chelsea",
+      detail: "Park",
+    },
+    {
+      name: "Washington Square Park",
+      lat: 40.7308,
+      lng: -73.9973,
+      subtitle: "Greenwich Village",
+      detail: "Park",
+    },
+  ];
+
+  it("returns only named candidates in the order they appear", () => {
+    const selected = selectRecommendedPlaceCards(
+      "Start with Washington Square Park, then try Blue Bottle Coffee.",
+      candidates,
+    );
+
+    expect(selected.map((item) => item.name)).toEqual([
+      "Washington Square Park",
+      "Blue Bottle Coffee",
+    ]);
+  });
+
+  it("matches punctuation and accents without matching a shorter nested name", () => {
+    const selected = selectRecommendedPlaceCards(
+      "Café Mía is my first pick, followed by Central Park.",
+      [
+        {
+          name: "Cafe Mia",
+          lat: 40.7,
+          lng: -73.9,
+          subtitle: "",
+          detail: "",
+        },
+        {
+          name: "Park",
+          lat: 40.71,
+          lng: -73.91,
+          subtitle: "",
+          detail: "",
+        },
+        {
+          name: "Central Park",
+          lat: 40.72,
+          lng: -73.92,
+          subtitle: "",
+          detail: "",
+        },
+      ],
+    );
+
+    expect(selected.map((item) => item.name)).toEqual([
+      "Cafe Mia",
+      "Central Park",
+    ]);
   });
 });
 

@@ -5,8 +5,8 @@ import type { UIMessageChunk } from "ai";
 // the AI SDK UI-message-stream protocol. This module translates the former into
 // the latter: assistant text deltas become text-start/text-delta/text-end, a
 // fatal Zentra error becomes an error chunk, and place/attraction tool results
-// become a "data-places" data part the UI renders as cards. Other tool
-// lifecycle events and warnings are ignored.
+// are held as candidates until the model's final text identifies the places it
+// actually recommends. Other tool lifecycle events and warnings are ignored.
 
 export type ZentraEvent = {
   type: string;
@@ -31,7 +31,7 @@ export type PlaceCardItem = {
 };
 
 export type PlaceCardsData = {
-  source: "nearby" | "attractions";
+  source: "nearby" | "attractions" | "mixed";
   items: PlaceCardItem[];
 };
 
@@ -73,6 +73,8 @@ export function parseZentraSse(buffer: string): {
  */
 export class ZentraUiTranslator {
   private textId: string | null = null;
+  private assistantText = "";
+  private placeCardCandidates: PlaceCardsData[] = [];
   private ended = false;
 
   constructor(private readonly generateId: () => string = () => crypto.randomUUID()) {}
@@ -96,7 +98,7 @@ export class ZentraUiTranslator {
         return this.handleToolFinished(event);
       case "done":
         this.ended = true;
-        return this.closeText();
+        return [...this.closeText(), ...this.emitRecommendedPlaceCards()];
       default:
         return [];
     }
@@ -107,7 +109,39 @@ export class ZentraUiTranslator {
     if (!cards || cards.items.length === 0) {
       return [];
     }
-    return [{ type: PLACE_CARDS_DATA_TYPE, id: this.generateId(), data: cards }];
+    // Tool results are candidate data, not recommendations. The model may
+    // intentionally choose only a subset, and its final prose determines the
+    // display order.
+    this.placeCardCandidates.push(cards);
+    return [];
+  }
+
+  private emitRecommendedPlaceCards(): UIMessageChunk[] {
+    const candidates = this.placeCardCandidates.flatMap((group) => group.items);
+    const items = selectRecommendedPlaceCards(this.assistantText, candidates);
+    if (items.length === 0) {
+      return [];
+    }
+
+    const selectedKeys = new Set(items.map(placeCardKey));
+    const sources = new Set(
+      this.placeCardCandidates.flatMap((group) =>
+        group.items.some((item) => selectedKeys.has(placeCardKey(item)))
+          ? [group.source]
+          : [],
+      ),
+    );
+
+    const source: PlaceCardsData["source"] =
+      sources.size === 1 ? [...sources][0] : "mixed";
+
+    return [
+      {
+        type: PLACE_CARDS_DATA_TYPE,
+        id: this.generateId(),
+        data: { source, items },
+      },
+    ];
   }
 
   /** Flush a text-end if the stream ended without an explicit done event. */
@@ -116,13 +150,15 @@ export class ZentraUiTranslator {
       return [];
     }
     this.ended = true;
-    return this.closeText();
+    return [...this.closeText(), ...this.emitRecommendedPlaceCards()];
   }
 
   private handleDelta(event: ZentraEvent): UIMessageChunk[] {
     if (typeof event.text !== "string" || event.text.length === 0) {
       return [];
     }
+
+    this.assistantText += event.text;
 
     const chunks: UIMessageChunk[] = [];
     if (this.textId === null) {
@@ -141,6 +177,109 @@ export class ZentraUiTranslator {
     this.textId = null;
     return [chunk];
   }
+}
+
+/**
+ * Select only candidate places named by the model and preserve their first
+ * appearance order in the model's natural-language response. This deliberately
+ * does not fall back to the tool result order: an unmentioned candidate was
+ * not selected by the model and must not become a card.
+ */
+export function selectRecommendedPlaceCards(
+  assistantText: string,
+  candidates: PlaceCardItem[],
+): PlaceCardItem[] {
+  const normalizedText = normalizeForMatching(assistantText);
+  if (!normalizedText || candidates.length === 0) {
+    return [];
+  }
+
+  const mentions = candidates.flatMap((item, candidateIndex) => {
+    const normalizedName = normalizeForMatching(item.name);
+    if (!normalizedName) {
+      return [];
+    }
+
+    return findPhrasePositions(normalizedText, normalizedName).map((position) => ({
+      item,
+      candidateIndex,
+      normalizedName,
+      position,
+      end: position + normalizedName.length,
+    }));
+  });
+
+  const visibleMentions = mentions
+    .filter(
+      (mention) =>
+        !mentions.some(
+          (other) =>
+            other !== mention &&
+            other.normalizedName.length > mention.normalizedName.length &&
+            other.position <= mention.position &&
+            other.end >= mention.end,
+        ),
+    )
+    .sort(
+      (left, right) =>
+        left.position - right.position ||
+        right.normalizedName.length - left.normalizedName.length ||
+        left.candidateIndex - right.candidateIndex,
+    );
+
+  const selectedNames = new Set<string>();
+  const selectedItems = new Set<string>();
+  const selected: PlaceCardItem[] = [];
+
+  for (const mention of visibleMentions) {
+    // A repeated mention is still one recommendation. The name is used for
+    // de-duplication because the model cannot distinguish two same-named
+    // locations without a structured place id in its response.
+    const itemKey = placeCardKey(mention.item);
+    if (selectedNames.has(mention.normalizedName) || selectedItems.has(itemKey)) {
+      continue;
+    }
+    selectedNames.add(mention.normalizedName);
+    selectedItems.add(itemKey);
+    selected.push(mention.item);
+  }
+
+  return selected;
+}
+
+function normalizeForMatching(value: string): string {
+  return value
+    .normalize("NFKD")
+    .replace(/\p{Diacritic}/gu, "")
+    .toLowerCase()
+    .replace(/[^\p{Letter}\p{Number}]+/gu, " ")
+    .trim()
+    .replace(/\s+/g, " ");
+}
+
+function findPhrasePositions(text: string, phrase: string): number[] {
+  const positions: number[] = [];
+  let searchFrom = 0;
+
+  while (searchFrom < text.length) {
+    const position = text.indexOf(phrase, searchFrom);
+    if (position < 0) {
+      break;
+    }
+
+    const before = position === 0 ? " " : text[position - 1];
+    const after = position + phrase.length >= text.length ? " " : text[position + phrase.length];
+    if (before === " " && after === " ") {
+      positions.push(position);
+    }
+    searchFrom = position + 1;
+  }
+
+  return positions;
+}
+
+function placeCardKey(item: PlaceCardItem): string {
+  return `${normalizeForMatching(item.name)}|${item.lat}|${item.lng}`;
 }
 
 /** Translate a complete SSE payload string into ordered UI chunks (test helper). */
@@ -200,8 +339,9 @@ export function createAgentUiMessageStream(
 
 /**
  * Turn a successful get_nearby_places / get_nearest_attractions tool result into
- * card data, or null for any other tool. Items without coordinates are dropped
- * (they can't be navigated to).
+ * candidate card data, or null for any other tool. Items without coordinates
+ * are dropped (they can't be navigated to). The translator later filters these
+ * candidates against the model's final response.
  */
 export function buildPlaceCards(event: ZentraEvent): PlaceCardsData | null {
   if (event.result?.status !== "success") {
