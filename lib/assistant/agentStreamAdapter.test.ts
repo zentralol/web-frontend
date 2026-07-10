@@ -1,8 +1,11 @@
 import { describe, expect, it } from "vitest";
 import type { UIMessageChunk } from "ai";
 import {
+  buildRecommendationCards,
   createAgentUiMessageStream,
+  parsePersistedPlaceCards,
   parseZentraSse,
+  PLACE_CARDS_DATA_TYPE,
   translateZentraSse,
   ZentraUiTranslator,
 } from "./agentStreamAdapter";
@@ -141,6 +144,88 @@ describe("createAgentUiMessageStream", () => {
       .map((chunk) => (chunk as { delta: string }).delta)
       .join("");
     expect(text).toBe("Hello there");
+  });
+});
+
+describe("recommendation cards", () => {
+  const event = {
+    type: "recommendations",
+    data: {
+      source: "nearby",
+      items: [
+        {
+          candidate_id: "google:place-a",
+          rank: 1,
+          reason: "Quiet and nearby",
+          name: "Blue Bottle Coffee",
+          lat: 40.7585,
+          lng: -73.986,
+          subtitle: "1 Main St",
+          detail: "Coffee shop · ★ 4.5",
+        },
+        {
+          candidate_id: "google:place-c",
+          rank: 2,
+          reason: "Good value",
+          name: "Cafe Two",
+          lat: 40.75,
+          lng: -73.98,
+          subtitle: "2 Main St",
+          detail: "Cafe",
+        },
+      ],
+    },
+  };
+
+  it("maps only the structured recommendation event", () => {
+    expect(buildRecommendationCards(event)).toEqual({
+      source: "nearby",
+      items: [
+        {
+          candidateId: "google:place-a",
+          rank: 1,
+          reason: "Quiet and nearby",
+          name: "Blue Bottle Coffee",
+          lat: 40.7585,
+          lng: -73.986,
+          subtitle: "1 Main St",
+          detail: "Coffee shop · ★ 4.5",
+        },
+        expect.objectContaining({ candidateId: "google:place-c", rank: 2 }),
+      ],
+    });
+  });
+
+  it("restores the same shape from a persisted data part", () => {
+    expect(
+      parsePersistedPlaceCards({ type: PLACE_CARDS_DATA_TYPE, data: event.data }),
+    ).toEqual(buildRecommendationCards(event));
+  });
+
+  it("rejects lifecycle events and malformed recommendation items", () => {
+    expect(buildRecommendationCards({ type: "tool_finished" })).toBeNull();
+    expect(
+      buildRecommendationCards({
+        type: "recommendations",
+        data: { source: "nearby", items: [{ name: "Missing coordinates" }] },
+      }),
+    ).toBeNull();
+  });
+
+  it("emits cards in the structured array order", () => {
+    const chunks = translateZentraSse(
+      frame({ type: "message_delta", text: "Here are my picks." }) +
+        frame(event) +
+        frame({ type: "done" }),
+    );
+    const dataChunk = chunks.find((chunk) => chunk.type === PLACE_CARDS_DATA_TYPE) as
+      | { type: string; data: { items: Array<{ candidateId: string }> } }
+      | undefined;
+
+    expect(dataChunk?.data.items.map((item) => item.candidateId)).toEqual([
+      "google:place-a",
+      "google:place-c",
+    ]);
   });
 });
 

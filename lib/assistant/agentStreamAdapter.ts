@@ -2,20 +2,44 @@ import { createUIMessageStream } from "ai";
 import type { UIMessageChunk } from "ai";
 
 // The agent (via the Express gateway) streams Zentra SSE events. useChat speaks
-// the AI SDK UI-message-stream protocol. This module translates the former into
-// the latter: assistant text deltas become text-start/text-delta/text-end, and
-// a fatal Zentra error becomes an error chunk. Non-text events (warnings, tool
-// lifecycle) are ignored — the current chat UI renders text only.
+// the AI SDK UI-message-stream protocol. Tool results remain lifecycle events;
+// only the agent's validated `recommendations` event becomes a card data part.
 
 export type ZentraEvent = {
   type: string;
   text?: string;
   message?: string;
   code?: string;
+  tool_name?: string;
+  result?: {
+    status?: string;
+    data?: Record<string, unknown>;
+  };
+  data?: {
+    source?: unknown;
+    items?: unknown;
+  };
+};
+
+export const PLACE_CARDS_DATA_TYPE = "data-places";
+
+export type PlaceCardItem = {
+  candidateId: string;
+  rank: number;
+  reason: string;
+  name: string;
+  lat: number;
+  lng: number;
+  subtitle: string;
+  detail: string;
+};
+
+export type PlaceCardsData = {
+  source: "nearby" | "attractions" | "mixed";
+  items: PlaceCardItem[];
 };
 
 const DATA_PREFIX = "data: ";
-
 const DEFAULT_ERROR_MESSAGE = "The assistant failed to respond.";
 
 /**
@@ -46,10 +70,7 @@ export function parseZentraSse(buffer: string): {
   return { events, rest };
 }
 
-/**
- * Stateful translator from Zentra events to UI message chunks. Kept separate
- * from stream plumbing so the mapping can be unit-tested directly.
- */
+/** Stateful translator from Zentra events to AI SDK UI message chunks. */
 export class ZentraUiTranslator {
   private textId: string | null = null;
   private ended = false;
@@ -64,6 +85,19 @@ export class ZentraUiTranslator {
     switch (event.type) {
       case "message_delta":
         return this.handleDelta(event);
+      case "recommendations": {
+        const cards = buildRecommendationCards(event);
+        if (!cards || cards.items.length === 0) {
+          return [];
+        }
+        return [
+          {
+            type: PLACE_CARDS_DATA_TYPE,
+            id: this.generateId(),
+            data: cards,
+          },
+        ];
+      }
       case "error": {
         this.ended = true;
         return [
@@ -110,6 +144,83 @@ export class ZentraUiTranslator {
     this.textId = null;
     return [chunk];
   }
+}
+
+/** Convert the agent's validated recommendation event into card data. */
+export function buildRecommendationCards(
+  event: ZentraEvent,
+): PlaceCardsData | null {
+  if (event.type !== "recommendations" || !event.data) {
+    return null;
+  }
+  return parsePlaceCardsData(event.data);
+}
+
+/** Restore a persisted `data-places` part from a database message. */
+export function parsePersistedPlaceCards(part: unknown): PlaceCardsData | null {
+  if (!isRecord(part) || part.type !== PLACE_CARDS_DATA_TYPE) {
+    return null;
+  }
+  return parsePlaceCardsData(part.data);
+}
+
+function parsePlaceCardsData(value: unknown): PlaceCardsData | null {
+  if (!isRecord(value) || !isPlaceSource(value.source) || !Array.isArray(value.items)) {
+    return null;
+  }
+
+  const items = value.items
+    .filter(isRecord)
+    .map(toPlaceCardItem)
+    .filter((item): item is PlaceCardItem => item !== null);
+
+  return items.length > 0 ? { source: value.source, items } : null;
+}
+
+function toPlaceCardItem(raw: Record<string, unknown>): PlaceCardItem | null {
+  const candidateId = asString(raw.candidate_id ?? raw.candidateId);
+  const name = asString(raw.name);
+  const lat = asNumber(raw.lat);
+  const lng = asNumber(raw.lng);
+  const rank = asNumber(raw.rank);
+  if (
+    !candidateId ||
+    !name ||
+    lat === null ||
+    lng === null ||
+    rank === null ||
+    !Number.isInteger(rank) ||
+    rank < 1
+  ) {
+    return null;
+  }
+
+  return {
+    candidateId,
+    rank,
+    reason: asString(raw.reason),
+    name,
+    lat,
+    lng,
+    subtitle: asString(raw.subtitle),
+    detail: asString(raw.detail),
+  };
+}
+
+function isPlaceSource(value: unknown): value is PlaceCardsData["source"] {
+  return value === "nearby" || value === "attractions" || value === "mixed";
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null;
+}
+
+function asString(value: unknown): string {
+  return typeof value === "string" ? value : "";
+}
+
+function asNumber(value: unknown): number | null {
+  return typeof value === "number" && Number.isFinite(value) ? value : null;
 }
 
 /** Translate a complete SSE payload string into ordered UI chunks (test helper). */

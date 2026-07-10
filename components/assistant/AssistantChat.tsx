@@ -9,6 +9,11 @@ import { useAuthenticatedBackendFetch } from "@/lib/backend/useAuthenticatedBack
 import { useGeolocation } from "@/lib/geo/useGeolocation";
 import { spaceGrotesk } from "@/app/ui/fonts";
 import { MarkdownMessage } from "@/components/assistant/MarkdownMessage";
+import { PlaceCards } from "@/components/assistant/PlaceCards";
+import {
+  PLACE_CARDS_DATA_TYPE,
+  type PlaceCardsData,
+} from "@/lib/assistant/agentStreamAdapter";
 import { useConversationEmptiness } from "@/components/assistant/conversationEmptinessContext";
 import { extractMessageText } from "@/lib/assistant/mappers";
 import {
@@ -174,6 +179,14 @@ export function AssistantChat({
                           ▍
                         </span>
                       )}
+                      {message.parts
+                        .filter((part) => part.type === PLACE_CARDS_DATA_TYPE)
+                        .map((part, index) => (
+                          <PlaceCards
+                            key={index}
+                            {...((part as { data: PlaceCardsData }).data)}
+                          />
+                        ))}
                     </>
                   )}
                 </div>
