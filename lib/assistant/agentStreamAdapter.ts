@@ -2,11 +2,8 @@ import { createUIMessageStream } from "ai";
 import type { UIMessageChunk } from "ai";
 
 // The agent (via the Express gateway) streams Zentra SSE events. useChat speaks
-// the AI SDK UI-message-stream protocol. This module translates the former into
-// the latter: assistant text deltas become text-start/text-delta/text-end, a
-// fatal Zentra error becomes an error chunk, and place/attraction tool results
-// are held as candidates until the model's final text identifies the places it
-// actually recommends. Other tool lifecycle events and warnings are ignored.
+// the AI SDK UI-message-stream protocol. Tool results remain lifecycle events;
+// only the agent's validated `recommendations` event becomes a card data part.
 
 export type ZentraEvent = {
   type: string;
@@ -18,11 +15,18 @@ export type ZentraEvent = {
     status?: string;
     data?: Record<string, unknown>;
   };
+  data?: {
+    source?: unknown;
+    items?: unknown;
+  };
 };
 
 export const PLACE_CARDS_DATA_TYPE = "data-places";
 
 export type PlaceCardItem = {
+  candidateId: string;
+  rank: number;
+  reason: string;
   name: string;
   lat: number;
   lng: number;
@@ -36,7 +40,6 @@ export type PlaceCardsData = {
 };
 
 const DATA_PREFIX = "data: ";
-
 const DEFAULT_ERROR_MESSAGE = "The assistant failed to respond.";
 
 /**
@@ -67,14 +70,9 @@ export function parseZentraSse(buffer: string): {
   return { events, rest };
 }
 
-/**
- * Stateful translator from Zentra events to UI message chunks. Kept separate
- * from stream plumbing so the mapping can be unit-tested directly.
- */
+/** Stateful translator from Zentra events to AI SDK UI message chunks. */
 export class ZentraUiTranslator {
   private textId: string | null = null;
-  private assistantText = "";
-  private placeCardCandidates: PlaceCardsData[] = [];
   private ended = false;
 
   constructor(private readonly generateId: () => string = () => crypto.randomUUID()) {}
@@ -87,6 +85,19 @@ export class ZentraUiTranslator {
     switch (event.type) {
       case "message_delta":
         return this.handleDelta(event);
+      case "recommendations": {
+        const cards = buildRecommendationCards(event);
+        if (!cards || cards.items.length === 0) {
+          return [];
+        }
+        return [
+          {
+            type: PLACE_CARDS_DATA_TYPE,
+            id: this.generateId(),
+            data: cards,
+          },
+        ];
+      }
       case "error": {
         this.ended = true;
         return [
@@ -94,54 +105,12 @@ export class ZentraUiTranslator {
           { type: "error", errorText: event.message ?? DEFAULT_ERROR_MESSAGE },
         ];
       }
-      case "tool_finished":
-        return this.handleToolFinished(event);
       case "done":
         this.ended = true;
-        return [...this.closeText(), ...this.emitRecommendedPlaceCards()];
+        return this.closeText();
       default:
         return [];
     }
-  }
-
-  private handleToolFinished(event: ZentraEvent): UIMessageChunk[] {
-    const cards = buildPlaceCards(event);
-    if (!cards || cards.items.length === 0) {
-      return [];
-    }
-    // Tool results are candidate data, not recommendations. The model may
-    // intentionally choose only a subset, and its final prose determines the
-    // display order.
-    this.placeCardCandidates.push(cards);
-    return [];
-  }
-
-  private emitRecommendedPlaceCards(): UIMessageChunk[] {
-    const candidates = this.placeCardCandidates.flatMap((group) => group.items);
-    const items = selectRecommendedPlaceCards(this.assistantText, candidates);
-    if (items.length === 0) {
-      return [];
-    }
-
-    const selectedKeys = new Set(items.map(placeCardKey));
-    const sources = new Set(
-      this.placeCardCandidates.flatMap((group) =>
-        group.items.some((item) => selectedKeys.has(placeCardKey(item)))
-          ? [group.source]
-          : [],
-      ),
-    );
-
-    const source: PlaceCardsData["source"] =
-      sources.size === 1 ? [...sources][0] : "mixed";
-
-    return [
-      {
-        type: PLACE_CARDS_DATA_TYPE,
-        id: this.generateId(),
-        data: { source, items },
-      },
-    ];
   }
 
   /** Flush a text-end if the stream ended without an explicit done event. */
@@ -150,15 +119,13 @@ export class ZentraUiTranslator {
       return [];
     }
     this.ended = true;
-    return [...this.closeText(), ...this.emitRecommendedPlaceCards()];
+    return this.closeText();
   }
 
   private handleDelta(event: ZentraEvent): UIMessageChunk[] {
     if (typeof event.text !== "string" || event.text.length === 0) {
       return [];
     }
-
-    this.assistantText += event.text;
 
     const chunks: UIMessageChunk[] = [];
     if (this.textId === null) {
@@ -179,107 +146,81 @@ export class ZentraUiTranslator {
   }
 }
 
-/**
- * Select only candidate places named by the model and preserve their first
- * appearance order in the model's natural-language response. This deliberately
- * does not fall back to the tool result order: an unmentioned candidate was
- * not selected by the model and must not become a card.
- */
-export function selectRecommendedPlaceCards(
-  assistantText: string,
-  candidates: PlaceCardItem[],
-): PlaceCardItem[] {
-  const normalizedText = normalizeForMatching(assistantText);
-  if (!normalizedText || candidates.length === 0) {
-    return [];
+/** Convert the agent's validated recommendation event into card data. */
+export function buildRecommendationCards(
+  event: ZentraEvent,
+): PlaceCardsData | null {
+  if (event.type !== "recommendations" || !event.data) {
+    return null;
   }
-
-  const mentions = candidates.flatMap((item, candidateIndex) => {
-    const normalizedName = normalizeForMatching(item.name);
-    if (!normalizedName) {
-      return [];
-    }
-
-    return findPhrasePositions(normalizedText, normalizedName).map((position) => ({
-      item,
-      candidateIndex,
-      normalizedName,
-      position,
-      end: position + normalizedName.length,
-    }));
-  });
-
-  const visibleMentions = mentions
-    .filter(
-      (mention) =>
-        !mentions.some(
-          (other) =>
-            other !== mention &&
-            other.normalizedName.length > mention.normalizedName.length &&
-            other.position <= mention.position &&
-            other.end >= mention.end,
-        ),
-    )
-    .sort(
-      (left, right) =>
-        left.position - right.position ||
-        right.normalizedName.length - left.normalizedName.length ||
-        left.candidateIndex - right.candidateIndex,
-    );
-
-  const selectedNames = new Set<string>();
-  const selectedItems = new Set<string>();
-  const selected: PlaceCardItem[] = [];
-
-  for (const mention of visibleMentions) {
-    // A repeated mention is still one recommendation. The name is used for
-    // de-duplication because the model cannot distinguish two same-named
-    // locations without a structured place id in its response.
-    const itemKey = placeCardKey(mention.item);
-    if (selectedNames.has(mention.normalizedName) || selectedItems.has(itemKey)) {
-      continue;
-    }
-    selectedNames.add(mention.normalizedName);
-    selectedItems.add(itemKey);
-    selected.push(mention.item);
-  }
-
-  return selected;
+  return parsePlaceCardsData(event.data);
 }
 
-function normalizeForMatching(value: string): string {
-  return value
-    .normalize("NFKD")
-    .replace(/\p{Diacritic}/gu, "")
-    .toLowerCase()
-    .replace(/[^\p{Letter}\p{Number}]+/gu, " ")
-    .trim()
-    .replace(/\s+/g, " ");
+/** Restore a persisted `data-places` part from a database message. */
+export function parsePersistedPlaceCards(part: unknown): PlaceCardsData | null {
+  if (!isRecord(part) || part.type !== PLACE_CARDS_DATA_TYPE) {
+    return null;
+  }
+  return parsePlaceCardsData(part.data);
 }
 
-function findPhrasePositions(text: string, phrase: string): number[] {
-  const positions: number[] = [];
-  let searchFrom = 0;
-
-  while (searchFrom < text.length) {
-    const position = text.indexOf(phrase, searchFrom);
-    if (position < 0) {
-      break;
-    }
-
-    const before = position === 0 ? " " : text[position - 1];
-    const after = position + phrase.length >= text.length ? " " : text[position + phrase.length];
-    if (before === " " && after === " ") {
-      positions.push(position);
-    }
-    searchFrom = position + 1;
+function parsePlaceCardsData(value: unknown): PlaceCardsData | null {
+  if (!isRecord(value) || !isPlaceSource(value.source) || !Array.isArray(value.items)) {
+    return null;
   }
 
-  return positions;
+  const items = value.items
+    .filter(isRecord)
+    .map(toPlaceCardItem)
+    .filter((item): item is PlaceCardItem => item !== null);
+
+  return items.length > 0 ? { source: value.source, items } : null;
 }
 
-function placeCardKey(item: PlaceCardItem): string {
-  return `${normalizeForMatching(item.name)}|${item.lat}|${item.lng}`;
+function toPlaceCardItem(raw: Record<string, unknown>): PlaceCardItem | null {
+  const candidateId = asString(raw.candidate_id ?? raw.candidateId);
+  const name = asString(raw.name);
+  const lat = asNumber(raw.lat);
+  const lng = asNumber(raw.lng);
+  const rank = asNumber(raw.rank);
+  if (
+    !candidateId ||
+    !name ||
+    lat === null ||
+    lng === null ||
+    rank === null ||
+    !Number.isInteger(rank) ||
+    rank < 1
+  ) {
+    return null;
+  }
+
+  return {
+    candidateId,
+    rank,
+    reason: asString(raw.reason),
+    name,
+    lat,
+    lng,
+    subtitle: asString(raw.subtitle),
+    detail: asString(raw.detail),
+  };
+}
+
+function isPlaceSource(value: unknown): value is PlaceCardsData["source"] {
+  return value === "nearby" || value === "attractions" || value === "mixed";
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null;
+}
+
+function asString(value: unknown): string {
+  return typeof value === "string" ? value : "";
+}
+
+function asNumber(value: unknown): number | null {
+  return typeof value === "number" && Number.isFinite(value) ? value : null;
 }
 
 /** Translate a complete SSE payload string into ordered UI chunks (test helper). */
@@ -335,98 +276,4 @@ export function createAgentUiMessageStream(
       }
     },
   });
-}
-
-/**
- * Turn a successful get_nearby_places / get_nearest_attractions tool result into
- * candidate card data, or null for any other tool. Items without coordinates
- * are dropped (they can't be navigated to). The translator later filters these
- * candidates against the model's final response.
- */
-export function buildPlaceCards(event: ZentraEvent): PlaceCardsData | null {
-  if (event.result?.status !== "success") {
-    return null;
-  }
-  const data = event.result.data ?? {};
-
-  if (event.tool_name === "get_nearby_places" && Array.isArray(data.places)) {
-    return { source: "nearby", items: mapItems(data.places, toPoiItem) };
-  }
-  if (
-    event.tool_name === "get_nearest_attractions" &&
-    Array.isArray(data.attractions)
-  ) {
-    return {
-      source: "attractions",
-      items: mapItems(data.attractions, toAttractionItem),
-    };
-  }
-  return null;
-}
-
-function mapItems(
-  raw: unknown[],
-  map: (item: Record<string, unknown>) => PlaceCardItem | null,
-): PlaceCardItem[] {
-  const items: PlaceCardItem[] = [];
-  for (const entry of raw) {
-    if (isRecord(entry)) {
-      const item = map(entry);
-      if (item) items.push(item);
-    }
-  }
-  return items;
-}
-
-function toPoiItem(raw: Record<string, unknown>): PlaceCardItem | null {
-  const base = baseItem(raw);
-  if (!base) return null;
-  const detail = joinDetail([
-    asString(raw.primary_type),
-    typeof raw.rating === "number" ? `★ ${raw.rating}` : "",
-    formatDistance(raw.distance_km),
-  ]);
-  return { ...base, subtitle: asString(raw.address), detail };
-}
-
-function toAttractionItem(raw: Record<string, unknown>): PlaceCardItem | null {
-  const base = baseItem(raw);
-  if (!base) return null;
-  const detail = joinDetail([
-    asString(raw.category),
-    formatDistance(raw.distance_km),
-  ]);
-  return { ...base, subtitle: asString(raw.neighborhood), detail };
-}
-
-function baseItem(
-  raw: Record<string, unknown>,
-): { name: string; lat: number; lng: number } | null {
-  const name = asString(raw.name);
-  const lat = asNumber(raw.lat);
-  const lng = asNumber(raw.lng);
-  if (!name || lat === null || lng === null) {
-    return null;
-  }
-  return { name, lat, lng };
-}
-
-function formatDistance(value: unknown): string {
-  return typeof value === "number" && Number.isFinite(value) ? `${value} km` : "";
-}
-
-function joinDetail(parts: string[]): string {
-  return parts.filter((part) => part.length > 0).join(" · ");
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null;
-}
-
-function asString(value: unknown): string {
-  return typeof value === "string" ? value : "";
-}
-
-function asNumber(value: unknown): number | null {
-  return typeof value === "number" && Number.isFinite(value) ? value : null;
 }

@@ -1,11 +1,11 @@
 import { describe, expect, it } from "vitest";
 import type { UIMessageChunk } from "ai";
 import {
-  buildPlaceCards,
+  buildRecommendationCards,
   createAgentUiMessageStream,
+  parsePersistedPlaceCards,
   parseZentraSse,
   PLACE_CARDS_DATA_TYPE,
-  selectRecommendedPlaceCards,
   translateZentraSse,
   ZentraUiTranslator,
 } from "./agentStreamAdapter";
@@ -147,209 +147,84 @@ describe("createAgentUiMessageStream", () => {
   });
 });
 
-describe("buildPlaceCards", () => {
-  const poiEvent = {
-    type: "tool_finished",
-    tool_name: "get_nearby_places",
-    result: {
-      status: "success",
-      data: {
-        places: [
-          {
-            name: "Blue Bottle Coffee",
-            address: "1 Main St",
-            primary_type: "Coffee shop",
-            lat: 40.7585,
-            lng: -73.986,
-            rating: 4.5,
-            distance_km: 0.3,
-          },
-          { name: "No Coords Cafe", address: "2 Main St" }, // dropped
-        ],
-      },
-    },
-  };
-
-  it("maps a nearby-places result to card items with coordinates", () => {
-    const cards = buildPlaceCards(poiEvent);
-    expect(cards).toEqual({
+describe("recommendation cards", () => {
+  const event = {
+    type: "recommendations",
+    data: {
       source: "nearby",
       items: [
         {
+          candidate_id: "google:place-a",
+          rank: 1,
+          reason: "Quiet and nearby",
           name: "Blue Bottle Coffee",
           lat: 40.7585,
           lng: -73.986,
           subtitle: "1 Main St",
-          detail: "Coffee shop · ★ 4.5 · 0.3 km",
+          detail: "Coffee shop · ★ 4.5",
         },
+        {
+          candidate_id: "google:place-c",
+          rank: 2,
+          reason: "Good value",
+          name: "Cafe Two",
+          lat: 40.75,
+          lng: -73.98,
+          subtitle: "2 Main St",
+          detail: "Cafe",
+        },
+      ],
+    },
+  };
+
+  it("maps only the structured recommendation event", () => {
+    expect(buildRecommendationCards(event)).toEqual({
+      source: "nearby",
+      items: [
+        {
+          candidateId: "google:place-a",
+          rank: 1,
+          reason: "Quiet and nearby",
+          name: "Blue Bottle Coffee",
+          lat: 40.7585,
+          lng: -73.986,
+          subtitle: "1 Main St",
+          detail: "Coffee shop · ★ 4.5",
+        },
+        expect.objectContaining({ candidateId: "google:place-c", rank: 2 }),
       ],
     });
   });
 
-  it("maps an attractions result", () => {
-    const cards = buildPlaceCards({
-      type: "tool_finished",
-      tool_name: "get_nearest_attractions",
-      result: {
-        status: "success",
-        data: {
-          attractions: [
-            {
-              name: "The High Line",
-              neighborhood: "Chelsea",
-              category: "Park",
-              lat: 40.748,
-              lng: -74.0048,
-              distance_km: 1.2,
-            },
-          ],
-        },
-      },
-    });
-    expect(cards?.source).toBe("attractions");
-    expect(cards?.items[0]).toMatchObject({
-      name: "The High Line",
-      lat: 40.748,
-      lng: -74.0048,
-      subtitle: "Chelsea",
-    });
+  it("restores the same shape from a persisted data part", () => {
+    expect(
+      parsePersistedPlaceCards({ type: PLACE_CARDS_DATA_TYPE, data: event.data }),
+    ).toEqual(buildRecommendationCards(event));
   });
 
-  it("returns null for other tools or non-success results", () => {
-    expect(buildPlaceCards({ type: "tool_finished", tool_name: "predict_crowd_level" })).toBeNull();
+  it("rejects lifecycle events and malformed recommendation items", () => {
+    expect(buildRecommendationCards({ type: "tool_finished" })).toBeNull();
     expect(
-      buildPlaceCards({
-        type: "tool_finished",
-        tool_name: "get_nearby_places",
-        result: { status: "warning" },
+      buildRecommendationCards({
+        type: "recommendations",
+        data: { source: "nearby", items: [{ name: "Missing coordinates" }] },
       }),
     ).toBeNull();
   });
 
-  it("does not emit candidate cards when the model does not recommend them", () => {
+  it("emits cards in the structured array order", () => {
     const chunks = translateZentraSse(
-      `data: ${JSON.stringify(poiEvent)}\n\n` + frame({ type: "done" }),
-    );
-    const dataChunk = chunks.find((c) => c.type === PLACE_CARDS_DATA_TYPE) as
-      | { type: string; data: { items: unknown[] } }
-      | undefined;
-    expect(dataChunk).toBeUndefined();
-  });
-
-  it("emits only model-recommended cards in natural-language order", () => {
-    const chunks = translateZentraSse(
-      `data: ${JSON.stringify(poiEvent)}\n\n` +
-        frame({
-          type: "tool_finished",
-          tool_name: "get_nearest_attractions",
-          result: {
-            status: "success",
-            data: {
-              attractions: [
-                {
-                  name: "The High Line",
-                  neighborhood: "Chelsea",
-                  category: "Park",
-                  lat: 40.748,
-                  lng: -74.0048,
-                  distance_km: 1.2,
-                },
-                {
-                  name: "Washington Square Park",
-                  neighborhood: "Greenwich Village",
-                  category: "Park",
-                  lat: 40.7308,
-                  lng: -73.9973,
-                },
-              ],
-            },
-          },
-        }) +
-        frame({
-          type: "message_delta",
-          text: "I recommend The High Line first, followed by Blue Bottle Coffee.",
-        }) +
+      frame({ type: "message_delta", text: "Here are my picks." }) +
+        frame(event) +
         frame({ type: "done" }),
     );
-    const dataChunk = chunks.find((c) => c.type === PLACE_CARDS_DATA_TYPE) as
-      | { type: string; data: { items: Array<{ name: string }> } }
+    const dataChunk = chunks.find((chunk) => chunk.type === PLACE_CARDS_DATA_TYPE) as
+      | { type: string; data: { items: Array<{ candidateId: string }> } }
       | undefined;
 
-    expect(dataChunk?.data.items.map((item) => item.name)).toEqual([
-      "The High Line",
-      "Blue Bottle Coffee",
-    ]);
-  });
-});
-
-describe("selectRecommendedPlaceCards", () => {
-  const candidates = [
-    {
-      name: "Blue Bottle Coffee",
-      lat: 40.7585,
-      lng: -73.986,
-      subtitle: "1 Main St",
-      detail: "Coffee shop",
-    },
-    {
-      name: "The High Line",
-      lat: 40.748,
-      lng: -74.0048,
-      subtitle: "Chelsea",
-      detail: "Park",
-    },
-    {
-      name: "Washington Square Park",
-      lat: 40.7308,
-      lng: -73.9973,
-      subtitle: "Greenwich Village",
-      detail: "Park",
-    },
-  ];
-
-  it("returns only named candidates in the order they appear", () => {
-    const selected = selectRecommendedPlaceCards(
-      "Start with Washington Square Park, then try Blue Bottle Coffee.",
-      candidates,
-    );
-
-    expect(selected.map((item) => item.name)).toEqual([
-      "Washington Square Park",
-      "Blue Bottle Coffee",
-    ]);
-  });
-
-  it("matches punctuation and accents without matching a shorter nested name", () => {
-    const selected = selectRecommendedPlaceCards(
-      "Café Mía is my first pick, followed by Central Park.",
-      [
-        {
-          name: "Cafe Mia",
-          lat: 40.7,
-          lng: -73.9,
-          subtitle: "",
-          detail: "",
-        },
-        {
-          name: "Park",
-          lat: 40.71,
-          lng: -73.91,
-          subtitle: "",
-          detail: "",
-        },
-        {
-          name: "Central Park",
-          lat: 40.72,
-          lng: -73.92,
-          subtitle: "",
-          detail: "",
-        },
-      ],
-    );
-
-    expect(selected.map((item) => item.name)).toEqual([
-      "Cafe Mia",
-      "Central Park",
+    expect(dataChunk?.data.items.map((item) => item.candidateId)).toEqual([
+      "google:place-a",
+      "google:place-c",
     ]);
   });
 });

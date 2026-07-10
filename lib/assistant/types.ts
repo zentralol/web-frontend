@@ -17,8 +17,14 @@ export type MessageRow = {
   prompt_tokens: number | null;
   completion_tokens: number | null;
   metadata: MessageMetadata | null;
+  parts: StoredMessagePart[] | null;
   created_at: string;
   deleted_at: string | null;
+};
+
+export type StoredMessagePart = {
+  type: "data-places";
+  data: Record<string, unknown>;
 };
 
 export type MessageMetadata = {

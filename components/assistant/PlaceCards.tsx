@@ -29,7 +29,7 @@ export function PlaceCards({ items }: PlaceCardsData) {
     <div className="mt-3 space-y-2">
       {items.map((item, index) => (
         <div
-          key={`${item.name}-${index}`}
+          key={item.candidateId || `${item.name}-${index}`}
           className="rounded-xl border border-white/10 bg-white/[0.05] p-3"
         >
           <div className="flex items-start justify-between gap-3">
@@ -51,6 +51,9 @@ export function PlaceCards({ items }: PlaceCardsData) {
                 <p className="mt-0.5 truncate text-[11px] text-white/40">
                   {item.detail}
                 </p>
+              )}
+              {item.reason && (
+                <p className="mt-1 text-[11px] text-accent/75">{item.reason}</p>
               )}
             </div>
             <button
