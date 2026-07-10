@@ -3,6 +3,7 @@
 import { useRouter } from "next/navigation";
 import { MapPin, Navigation } from "lucide-react";
 import { spaceGrotesk } from "@/app/ui/fonts";
+import { buildRoutesHref as buildRoutesHrefFromCoords } from "@/lib/attractions/buildRoutesHref";
 import type {
   PlaceCardItem,
   PlaceCardsData,
@@ -10,12 +11,11 @@ import type {
 
 /** Deep-link to the route planner with this place preset as the destination. */
 export function buildRoutesHref(item: PlaceCardItem): string {
-  const params = new URLSearchParams({
-    destLat: String(item.lat),
-    destLng: String(item.lng),
-    destLabel: item.name,
+  return buildRoutesHrefFromCoords({
+    lat: item.lat,
+    lng: item.lng,
+    name: item.name,
   });
-  return `/routes?${params.toString()}`;
 }
 
 export function PlaceCards({ items }: PlaceCardsData) {

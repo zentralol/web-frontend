@@ -12,19 +12,20 @@ import {
   type MapMouseEvent,
 } from "@vis.gl/react-google-maps";
 import { LocateFixed, Loader2 } from "lucide-react";
-import { fetchAttractions } from "@/lib/attractions/fetchAttractions";
+import { categoryMarkerColor } from "@/lib/attractions/categoryColors";
+import type { Attraction } from "@/lib/attractions/types";
 import {
   requestCurrentPosition,
   type Coords,
 } from "@/lib/geo/requestCurrentPosition";
-import type { Attraction } from "@/lib/attractions/types";
 import { useAuthenticatedBackendFetch } from "@/lib/backend/useAuthenticatedBackendFetch";
 import { fetchLocationDetails } from "@/lib/map/fetchLocationDetails";
 import { fetchBusynessData } from "@/lib/map/fetchPredictions";
 import type { LocationSelectionState } from "@/lib/map/types";
+import FitAttractionBounds from "@/components/map/FitAttractionBounds";
+import PanToTarget from "@/components/map/PanToTarget";
 
 const API_KEY = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY;
-const ATTRACTION_MARKER_COLOR = "#00BFFF";
 const USER_MARKER_COLOR = "#4285F4";
 const LOCATION_ERROR_MESSAGE =
   "Couldn't get your location. Check location permissions.";
@@ -41,10 +42,19 @@ type PendingSelection =
       attraction: Attraction;
     };
 
-type MapViewProps = {
+export type MapViewProps = {
+  attractions: Attraction[];
+  highlightedId: number | null;
+  focusTarget: { lat: number; lng: number } | null;
+  fitBoundsEnabled?: boolean;
   onLoadingStart: (lat: number, lng: number) => void;
   onMapDragStart: () => void;
   onSelectionChange: (selection: LocationSelectionState) => void;
+  onAttractionInteract: (attraction: Attraction) => void;
+  onFocusComplete: () => void;
+  onRegisterAttractionSelector: (
+    selector: (attraction: Attraction) => void,
+  ) => void;
 };
 
 function UserMarker({ position }: { position: Coords }) {
@@ -128,58 +138,65 @@ function MyLocationControl({
 
 function AttractionMarker({
   attraction,
+  isHighlighted,
   onSelect,
 }: {
   attraction: Attraction;
+  isHighlighted: boolean;
   onSelect: (attraction: Attraction) => void;
 }) {
   return (
     <Marker
       position={{ lat: attraction.lat, lng: attraction.lng }}
       title={attraction.name}
+      zIndex={isHighlighted ? 5 : 1}
       onClick={() => onSelect(attraction)}
       icon={{
         path: google.maps.SymbolPath.CIRCLE,
-        scale: 8,
-        fillColor: ATTRACTION_MARKER_COLOR,
+        scale: isHighlighted ? 11 : 8,
+        fillColor: categoryMarkerColor(attraction.category),
         fillOpacity: 1,
-        strokeColor: "#ffffff",
-        strokeWeight: 2,
+        strokeColor: isHighlighted ? "#ffffff" : "#ffffff",
+        strokeWeight: isHighlighted ? 3 : 2,
       }}
     />
   );
 }
 
 function MapContent({
+  attractions,
+  highlightedId,
+  focusTarget,
+  fitBoundsEnabled = true,
   onLoadingStart,
   onMapDragStart,
   onSelectionChange,
+  onAttractionInteract,
+  onFocusComplete,
+  onRegisterAttractionSelector,
 }: MapViewProps) {
   const placesLib = useMapsLibrary("places");
   const geocodingLib = useMapsLibrary("geocoding");
   const backendFetch = useAuthenticatedBackendFetch();
-  const [attractions, setAttractions] = useState<Attraction[]>([]);
   const [userPosition, setUserPosition] = useState<Coords | null>(null);
   const [pendingSelection, setPendingSelection] =
     useState<PendingSelection | null>(null);
 
-  useEffect(() => {
-    let cancelled = false;
-
-    fetchAttractions()
-      .then((items) => {
-        if (!cancelled) {
-          setAttractions(items);
-        }
-      })
-      .catch(() => {
-        // Silently degrade: map clicks still work without markers.
+  const beginAttractionSelection = useCallback(
+    (attraction: Attraction) => {
+      onAttractionInteract(attraction);
+      onLoadingStart(attraction.lat, attraction.lng);
+      setPendingSelection({
+        kind: "attraction",
+        attraction,
       });
+    },
+    [onAttractionInteract, onLoadingStart],
+  );
 
-    return () => {
-      cancelled = true;
-    };
-  }, []);
+  useEffect(() => {
+    onRegisterAttractionSelector(beginAttractionSelection);
+  }, [beginAttractionSelection, onRegisterAttractionSelector]);
 
   const handleClick = useCallback(
     (ev: MapMouseEvent) => {
@@ -203,13 +220,9 @@ function MapContent({
 
   const handleAttractionClick = useCallback(
     (attraction: Attraction) => {
-      onLoadingStart(attraction.lat, attraction.lng);
-      setPendingSelection({
-        kind: "attraction",
-        attraction,
-      });
+      beginAttractionSelection(attraction);
     },
-    [onLoadingStart],
+    [beginAttractionSelection],
   );
 
   const handleLocate = useCallback(
@@ -318,10 +331,16 @@ function MapContent({
       onClick={handleClick}
       onDragstart={onMapDragStart}
     >
+      <FitAttractionBounds
+        attractions={attractions}
+        enabled={fitBoundsEnabled && attractions.length > 0}
+      />
+      <PanToTarget target={focusTarget} onComplete={onFocusComplete} />
       {attractions.map((attraction) => (
         <AttractionMarker
           key={attraction.id}
           attraction={attraction}
+          isHighlighted={highlightedId === attraction.id}
           onSelect={handleAttractionClick}
         />
       ))}

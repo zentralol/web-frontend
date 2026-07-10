@@ -1,4 +1,7 @@
+import Link from "next/link";
+import { ArrowLeft, Navigation } from "lucide-react";
 import { spaceGrotesk } from "@/app/ui/fonts";
+import { buildRoutesHref } from "@/lib/attractions/buildRoutesHref";
 import type { LocationSelectionState } from "@/lib/map/types";
 
 function formatCoordinate(value: number) {
@@ -42,20 +45,27 @@ function LocationPanelSkeleton() {
 
 export function LocationPanelContent({
   selection,
+  onBack,
 }: {
   selection: LocationSelectionState;
+  onBack?: () => void;
 }) {
   return (
     <>
+      {onBack && selection.status !== "idle" && (
+        <button
+          type="button"
+          onClick={onBack}
+          className="mb-4 inline-flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-white/55 transition-colors hover:text-white"
+        >
+          <ArrowLeft className="h-3.5 w-3.5" aria-hidden />
+          Back to explore
+        </button>
+      )}
+
       <p className="text-xs font-bold uppercase tracking-[0.25em] text-accent/80">
         Location
       </p>
-
-      {selection.status === "idle" && (
-        <p className="mt-6 text-sm text-white/55">
-          Click an attraction marker or anywhere on the map to see details here.
-        </p>
-      )}
 
       {selection.status === "loading" && <LocationPanelSkeleton />}
 
@@ -169,6 +179,18 @@ export function LocationPanelContent({
               {formatCoordinate(selection.location.lng)}
             </p>
           </div>
+
+          <Link
+            href={buildRoutesHref({
+              lat: selection.location.lat,
+              lng: selection.location.lng,
+              name: selection.location.name ?? "Selected location",
+            })}
+            className={`${spaceGrotesk.className} inline-flex items-center gap-2 rounded-full bg-accent px-5 py-2.5 text-xs font-bold uppercase tracking-widest text-surface transition-opacity hover:opacity-90`}
+          >
+            <Navigation className="h-3.5 w-3.5" aria-hidden />
+            Take me there
+          </Link>
         </div>
       )}
     </>

@@ -1,8 +1,13 @@
 import { auth, currentUser } from "@clerk/nextjs/server";
-import Link from "next/link";
 import { redirect } from "next/navigation";
+import HomeExploreSection from "@/components/home/HomeExploreSection";
+import { pickRecommendedAttractions } from "@/lib/attractions/filterAttractions";
+import { listAttractions } from "@/lib/attractions/queries";
+import {
+  getOnboardingPreferences,
+  hasCompletedOnboarding,
+} from "@/lib/onboarding/queries";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
-import { hasCompletedOnboarding } from "@/lib/onboarding/queries";
 import { spaceGrotesk } from "@/app/ui/fonts";
 
 export default async function Home() {
@@ -36,6 +41,20 @@ export default async function Home() {
 
   const user = await currentUser();
   const firstName = user?.firstName ?? "Traveler";
+  const preferences = await getOnboardingPreferences(supabase, userId);
+
+  let recommendedAttractions: Awaited<ReturnType<typeof listAttractions>> = [];
+
+  try {
+    const attractions = await listAttractions(supabase);
+    recommendedAttractions = pickRecommendedAttractions(
+      attractions,
+      preferences?.interests ?? [],
+      3,
+    );
+  } catch {
+    recommendedAttractions = [];
+  }
 
   return (
     <div className="mx-auto flex min-h-[calc(100vh-var(--viewport-top))] max-w-4xl flex-col justify-center px-4 py-16 sm:px-6">
@@ -48,23 +67,10 @@ export default async function Home() {
         Ready for your next trip, {firstName}?
       </h1>
       <p className="mt-4 max-w-2xl text-lg text-white/55">
-        Your preferences are synced. Jump into the map, plan a route, or update
-        your settings anytime.
+        Your preferences are synced. Search attractions, explore the map, or
+        update your settings anytime.
       </p>
-      <div className="mt-10 flex flex-wrap gap-3">
-        <Link
-          href="/map"
-          className="rounded-full bg-accent px-8 py-3 text-sm font-bold uppercase tracking-widest text-surface transition-opacity hover:opacity-90"
-        >
-          Open map
-        </Link>
-        <Link
-          href="/settings"
-          className="rounded-full border border-white/15 px-8 py-3 text-sm font-bold uppercase tracking-widest text-white/70 transition-colors hover:border-white/30 hover:text-white"
-        >
-          Preferences
-        </Link>
-      </div>
+      <HomeExploreSection recommendedAttractions={recommendedAttractions} />
     </div>
   );
 }
