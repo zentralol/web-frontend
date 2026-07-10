@@ -11,11 +11,13 @@ import { spaceGrotesk } from "@/app/ui/fonts";
 import { MarkdownMessage } from "@/components/assistant/MarkdownMessage";
 import { PlaceCards } from "@/components/assistant/PlaceCards";
 import {
+  getActiveToolFromParts,
   PLACE_CARDS_DATA_TYPE,
   type PlaceCardsData,
 } from "@/lib/assistant/agentStreamAdapter";
 import { useConversationEmptiness } from "@/components/assistant/conversationEmptinessContext";
 import { extractMessageText } from "@/lib/assistant/mappers";
+import { useAssistantThinking } from "@/lib/assistant/useStreamStall";
 import {
   WELCOME_MESSAGE_ID,
   isConversationEmpty,
@@ -44,6 +46,64 @@ type AssistantChatProps = {
   conversationId: string;
   initialMessages: UIMessage[];
 };
+
+type AssistantMessageRowProps = {
+  content: string;
+  parts: UIMessage["parts"];
+  isThinking: boolean;
+  isStreaming: boolean;
+};
+
+function AssistantMessageRow({
+  content,
+  parts,
+  isThinking,
+  isStreaming,
+}: AssistantMessageRowProps) {
+  return (
+    <div
+      className="mr-auto flex max-w-[85%] gap-3"
+      role={isThinking ? "status" : undefined}
+      aria-live={isThinking ? "polite" : undefined}
+      aria-label={isThinking ? "Assistant is thinking" : undefined}
+    >
+      <div
+        className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-white/10 bg-white/5 text-white/70 ${
+          isThinking ? "animate-breath text-accent" : ""
+        }`}
+      >
+        <Bot className="h-3.5 w-3.5" />
+      </div>
+
+      <div
+        className={`rounded-xl border border-white/5 bg-surface px-4 py-3 text-sm leading-relaxed text-white/75 ${
+          isThinking ? "animate-breath" : ""
+        }`}
+      >
+        {isThinking && !content ? (
+          <span className="text-white/55">Thinking...</span>
+        ) : (
+          <>
+            {content ? <MarkdownMessage content={content} /> : null}
+            {isStreaming && (
+              <span className="ml-0.5 animate-pulse text-accent align-baseline">
+                ▍
+              </span>
+            )}
+            {parts
+              .filter((part) => part.type === PLACE_CARDS_DATA_TYPE)
+              .map((part, index) => (
+                <PlaceCards
+                  key={index}
+                  {...((part as { data: PlaceCardsData }).data)}
+                />
+              ))}
+          </>
+        )}
+      </div>
+    </div>
+  );
+}
 
 export function AssistantChat({
   conversationId,
@@ -77,6 +137,25 @@ export function AssistantChat({
   const hasUserMessages = messages.some((message) => message.role === "user");
   const showSuggestedQuestions = !hasUserMessages && !isLoading;
 
+  const lastMessage = messages[messages.length - 1];
+  const isActiveTurn = status === "submitted" || status === "streaming";
+  const activeAssistantMessageId =
+    isActiveTurn && lastMessage?.role === "assistant" ? lastMessage.id : null;
+  const lastAssistantMessage = [...messages]
+    .reverse()
+    .find((message) => message.role === "assistant");
+  const activeTool = lastAssistantMessage
+    ? getActiveToolFromParts(lastAssistantMessage.parts)
+    : null;
+  const showThinking = useAssistantThinking(
+    status,
+    messages,
+    activeAssistantMessageId,
+    activeTool,
+  );
+  const needsThinkingPlaceholder =
+    showThinking && status === "submitted" && activeAssistantMessageId === null;
+
   useEffect(() => {
     const previousStatus = previousStatusRef.current;
     previousStatusRef.current = status;
@@ -91,7 +170,7 @@ export function AssistantChat({
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages, status]);
+  }, [messages, status, showThinking]);
 
   useEffect(() => {
     setActiveConversationEmpty(isConversationEmpty(messages));
@@ -113,9 +192,6 @@ export function AssistantChat({
     );
   };
 
-  const lastMessage = messages[messages.length - 1];
-  const showThinking = status === "submitted";
-
   return (
     <div className="flex min-h-0 min-w-0 max-w-full flex-1 flex-col overflow-hidden px-4 py-6 sm:px-6">
       <div className="mb-6 shrink-0">
@@ -134,65 +210,51 @@ export function AssistantChat({
           {messages.map((message) => {
             const isUser = message.role === "user";
             const content = extractMessageText(message);
-            const isStreamingAssistant =
-              !isUser &&
-              status === "streaming" &&
-              message.id === lastMessage?.id;
 
-            if (!isUser && !content && status === "submitted") {
-              return null;
+            if (!isUser) {
+              const isThinkingBubble =
+                showThinking && message.id === activeAssistantMessageId;
+              const isStreamingAssistant =
+                status === "streaming" &&
+                message.id === lastMessage?.id &&
+                !showThinking;
+
+              return (
+                <AssistantMessageRow
+                  key={message.id}
+                  content={content}
+                  parts={message.parts}
+                  isThinking={isThinkingBubble}
+                  isStreaming={isStreamingAssistant}
+                />
+              );
             }
 
             return (
               <div
                 key={message.id}
-                className={`flex max-w-[85%] gap-3 ${isUser ? "ml-auto flex-row-reverse" : "mr-auto"}`}
+                className="ml-auto flex max-w-[85%] flex-row-reverse gap-3"
               >
-                <div
-                  className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full border ${
-                    isUser
-                      ? "border-accent/20 bg-accent/10 text-accent"
-                      : "border-white/10 bg-white/5 text-white/70"
-                  }`}
-                >
-                  {isUser ? (
-                    <User className="h-3.5 w-3.5" />
-                  ) : (
-                    <Bot className="h-3.5 w-3.5" />
-                  )}
+                <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-accent/20 bg-accent/10 text-accent">
+                  <User className="h-3.5 w-3.5" />
                 </div>
 
-                <div
-                  className={`rounded-xl border px-4 py-3 text-sm leading-relaxed ${
-                    isUser
-                      ? "border-accent/25 bg-accent/10 text-white"
-                      : "border-white/5 bg-surface text-white/75"
-                  }`}
-                >
-                  {isUser ? (
-                    <p className="whitespace-pre-wrap">{content}</p>
-                  ) : (
-                    <>
-                      <MarkdownMessage content={content} />
-                      {isStreamingAssistant && (
-                        <span className="ml-0.5 animate-pulse text-accent align-baseline">
-                          ▍
-                        </span>
-                      )}
-                      {message.parts
-                        .filter((part) => part.type === PLACE_CARDS_DATA_TYPE)
-                        .map((part, index) => (
-                          <PlaceCards
-                            key={index}
-                            {...((part as { data: PlaceCardsData }).data)}
-                          />
-                        ))}
-                    </>
-                  )}
+                <div className="rounded-xl border border-accent/25 bg-accent/10 px-4 py-3 text-sm leading-relaxed text-white">
+                  <p className="whitespace-pre-wrap">{content}</p>
                 </div>
               </div>
             );
           })}
+
+          {needsThinkingPlaceholder && (
+            <AssistantMessageRow
+              key="thinking-placeholder"
+              content=""
+              parts={[]}
+              isThinking
+              isStreaming={false}
+            />
+          )}
 
           {showSuggestedQuestions && (
             <div className="mr-auto flex w-full max-w-[85%] flex-col gap-2 pl-11">
@@ -206,17 +268,6 @@ export function AssistantChat({
                   {question}
                 </button>
               ))}
-            </div>
-          )}
-
-          {showThinking && (
-            <div className="mr-auto flex max-w-[85%] gap-3">
-              <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-white/10 bg-white/5 text-accent">
-                <Bot className="h-3.5 w-3.5" />
-              </div>
-              <div className="rounded-xl border border-white/5 bg-surface px-4 py-3 text-sm text-white/55">
-                Thinking...
-              </div>
             </div>
           )}
 
