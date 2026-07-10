@@ -1,5 +1,10 @@
 import { haversineDistanceKm } from "@/lib/geo/haversineDistance";
 import type { TravelInterest } from "@/lib/onboarding/types";
+import {
+  extractCategoryGroups,
+  resolveCategoryGroup,
+  type CategoryGroup,
+} from "./categoryGroups";
 import { scoreAttractionInterests } from "./interestMatching";
 import type { Attraction } from "./types";
 
@@ -7,21 +12,17 @@ export type AttractionSortMode = "recommended" | "near_me" | "name";
 
 export type FilterAttractionsOptions = {
   query?: string;
-  category?: string | null;
+  category?: CategoryGroup | null;
   sortMode?: AttractionSortMode;
   userCoords?: { lat: number; lng: number } | null;
   interests?: TravelInterest[];
 };
 
-export function extractCategories(attractions: Attraction[]): string[] {
-  const categories = new Set<string>();
-  for (const attraction of attractions) {
-    const category = attraction.category.trim();
-    if (category) {
-      categories.add(category);
-    }
-  }
-  return [...categories].sort((a, b) => a.localeCompare(b));
+export function extractCategories(attractions: Attraction[]): CategoryGroup[] {
+  const rawCategories = attractions
+    .map((attraction) => attraction.category.trim())
+    .filter(Boolean);
+  return extractCategoryGroups(rawCategories);
 }
 
 function matchesQuery(attraction: Attraction, query: string): boolean {
@@ -33,6 +34,7 @@ function matchesQuery(attraction: Attraction, query: string): boolean {
   const haystack = [
     attraction.name,
     attraction.category,
+    resolveCategoryGroup(attraction.category),
     attraction.neighborhood,
     attraction.description,
   ]
@@ -42,11 +44,14 @@ function matchesQuery(attraction: Attraction, query: string): boolean {
   return haystack.includes(normalized);
 }
 
-function matchesCategory(attraction: Attraction, category: string | null | undefined): boolean {
+function matchesCategory(
+  attraction: Attraction,
+  category: CategoryGroup | null | undefined,
+): boolean {
   if (!category) {
     return true;
   }
-  return attraction.category === category;
+  return resolveCategoryGroup(attraction.category) === category;
 }
 
 function compareByName(a: Attraction, b: Attraction): number {

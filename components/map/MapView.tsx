@@ -13,6 +13,7 @@ import {
 } from "@vis.gl/react-google-maps";
 import { LocateFixed, Loader2 } from "lucide-react";
 import { categoryMarkerColor } from "@/lib/attractions/categoryColors";
+import { resolveCategoryGroup } from "@/lib/attractions/categoryGroups";
 import type { Attraction } from "@/lib/attractions/types";
 import {
   requestCurrentPosition,
@@ -154,7 +155,7 @@ function AttractionMarker({
       icon={{
         path: google.maps.SymbolPath.CIRCLE,
         scale: isHighlighted ? 11 : 8,
-        fillColor: categoryMarkerColor(attraction.category),
+        fillColor: categoryMarkerColor(resolveCategoryGroup(attraction.category)),
         fillOpacity: 1,
         strokeColor: isHighlighted ? "#ffffff" : "#ffffff",
         strokeWeight: isHighlighted ? 3 : 2,

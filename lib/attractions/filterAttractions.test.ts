@@ -1,5 +1,9 @@
 import { describe, expect, test } from "vitest";
 import {
+  extractCategoryGroups,
+  resolveCategoryGroup,
+} from "./categoryGroups";
+import {
   extractCategories,
   filterAttractions,
   pickRecommendedAttractions,
@@ -28,13 +32,22 @@ const attractions: Attraction[] = [
   {
     id: 3,
     name: "Chelsea Market",
-    category: "Market",
+    category: "Market/Food Hall",
     neighborhood: "Chelsea",
     description: "Food hall and local shopping destination",
     lat: 40.7424,
     lng: -74.006,
   },
 ];
+
+describe("resolveCategoryGroup", () => {
+  test("maps granular raw categories into browse groups", () => {
+    expect(resolveCategoryGroup("Landmark/Bridge")).toBe("Landmarks & History");
+    expect(resolveCategoryGroup("Deli/Bakery")).toBe("Food & Drink");
+    expect(resolveCategoryGroup("Subway Station")).toBe("Transit");
+    expect(resolveCategoryGroup("Shopping District")).toBe("Shopping");
+  });
+});
 
 describe("filterAttractions", () => {
   test("filters by query across name, category, neighborhood, and description", () => {
@@ -46,10 +59,13 @@ describe("filterAttractions", () => {
     ]);
   });
 
-  test("filters by category", () => {
+  test("filters by curated category group", () => {
     expect(
-      filterAttractions(attractions, { category: "Market" }).map((item) => item.id),
+      filterAttractions(attractions, { category: "Food & Drink" }).map((item) => item.id),
     ).toEqual([3]);
+    expect(
+      filterAttractions(attractions, { category: "Parks & Outdoors" }).map((item) => item.id),
+    ).toEqual([1]);
   });
 
   test("sorts alphabetically by name", () => {
@@ -80,8 +96,30 @@ describe("filterAttractions", () => {
 });
 
 describe("extractCategories", () => {
-  test("returns unique sorted categories", () => {
-    expect(extractCategories(attractions)).toEqual(["Market", "Museum", "Park"]);
+  test("returns curated groups present in the dataset", () => {
+    expect(extractCategories(attractions)).toEqual([
+      "Food & Drink",
+      "Museums & Culture",
+      "Parks & Outdoors",
+    ]);
+  });
+});
+
+describe("extractCategoryGroups", () => {
+  test("preserves stable group order", () => {
+    expect(
+      extractCategoryGroups([
+        "Train Station",
+        "Museum/Memorial",
+        "Bar/Pub",
+        "Park",
+      ]),
+    ).toEqual([
+      "Food & Drink",
+      "Museums & Culture",
+      "Parks & Outdoors",
+      "Transit",
+    ]);
   });
 });
 

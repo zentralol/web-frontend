@@ -3,6 +3,7 @@
 import { Loader2, MapPin, Search } from "lucide-react";
 import { spaceGrotesk } from "@/app/ui/fonts";
 import type { AttractionSortMode } from "@/lib/attractions/filterAttractions";
+import type { CategoryGroup } from "@/lib/attractions/categoryGroups";
 import type { Attraction } from "@/lib/attractions/types";
 import { haversineDistanceKm } from "@/lib/geo/haversineDistance";
 
@@ -13,15 +14,15 @@ export type AttractionBrowsePanelProps = {
   loadError?: string | null;
   filteredAttractions: Attraction[];
   totalCount: number;
-  categories: string[];
+  categories: CategoryGroup[];
   searchQuery: string;
-  categoryFilter: string | null;
+  categoryFilter: CategoryGroup | null;
   sortMode: AttractionSortMode;
   highlightedId: number | null;
   nearMeError?: string | null;
   userCoords?: { lat: number; lng: number } | null;
   onSearchChange: (query: string) => void;
-  onCategoryChange: (category: string | null) => void;
+  onCategoryChange: (category: CategoryGroup | null) => void;
   onSortModeChange: (mode: AttractionSortMode) => void;
   onNearMe: () => void;
   onSelect: (attraction: Attraction) => void;

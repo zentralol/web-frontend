@@ -12,6 +12,7 @@ import {
   filterAttractions,
   type AttractionSortMode,
 } from "@/lib/attractions/filterAttractions";
+import type { CategoryGroup } from "@/lib/attractions/categoryGroups";
 import { fetchAttractions } from "@/lib/attractions/fetchAttractions";
 import type { Attraction } from "@/lib/attractions/types";
 import { requestCurrentPosition } from "@/lib/geo/requestCurrentPosition";
@@ -47,7 +48,7 @@ export default function MapWorkspace({
   const [searchQuery, setSearchQuery] = useState(
     () => searchParams.get("q") ?? "",
   );
-  const [categoryFilter, setCategoryFilter] = useState<string | null>(null);
+  const [categoryFilter, setCategoryFilter] = useState<CategoryGroup | null>(null);
   const [sortMode, setSortMode] = useState<AttractionSortMode>("recommended");
   const [userCoords, setUserCoords] = useState<{ lat: number; lng: number } | null>(
     null,
