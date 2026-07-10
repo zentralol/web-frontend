@@ -41,7 +41,7 @@ export type PlaceCardItem = {
 };
 
 export type PlaceCardsData = {
-  source: "nearby" | "attractions" | "mixed";
+  source: "nearby" | "attractions" | "recommend" | "itinerary" | "mixed";
   items: PlaceCardItem[];
 };
 
@@ -271,7 +271,13 @@ function toPlaceCardItem(raw: Record<string, unknown>): PlaceCardItem | null {
 }
 
 function isPlaceSource(value: unknown): value is PlaceCardsData["source"] {
-  return value === "nearby" || value === "attractions" || value === "mixed";
+  return (
+    value === "nearby" ||
+    value === "attractions" ||
+    value === "recommend" ||
+    value === "itinerary" ||
+    value === "mixed"
+  );
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {

@@ -296,6 +296,80 @@ describe("recommendation cards", () => {
     ).toBeNull();
   });
 
+  it("accepts backend recommendation source", () => {
+    expect(
+      buildRecommendationCards({
+        type: "recommendations",
+        data: {
+          source: "recommend",
+          items: [
+            {
+              candidate_id: "recommend:fort-tryon",
+              rank: 1,
+              reason: "",
+              name: "Fort Tryon Park",
+              lat: 40.8617,
+              lng: -73.9326,
+              subtitle: "Washington Heights",
+              detail: "park · Very quiet",
+            },
+          ],
+        },
+      }),
+    ).toEqual({
+      source: "recommend",
+      items: [
+        {
+          candidateId: "recommend:fort-tryon",
+          rank: 1,
+          reason: "",
+          name: "Fort Tryon Park",
+          lat: 40.8617,
+          lng: -73.9326,
+          subtitle: "Washington Heights",
+          detail: "park · Very quiet",
+        },
+      ],
+    });
+  });
+
+  it("accepts itinerary source", () => {
+    expect(
+      buildRecommendationCards({
+        type: "recommendations",
+        data: {
+          source: "itinerary",
+          items: [
+            {
+              candidate_id: "itinerary:essex-market",
+              rank: 1,
+              reason: "Vegetarian-friendly dinner",
+              name: "Essex Market",
+              lat: 40.7185,
+              lng: -73.9877,
+              subtitle: "20:10 · Lower East Side",
+              detail: "food · Moderate · 08:00-21:00",
+            },
+          ],
+        },
+      }),
+    ).toEqual({
+      source: "itinerary",
+      items: [
+        {
+          candidateId: "itinerary:essex-market",
+          rank: 1,
+          reason: "Vegetarian-friendly dinner",
+          name: "Essex Market",
+          lat: 40.7185,
+          lng: -73.9877,
+          subtitle: "20:10 · Lower East Side",
+          detail: "food · Moderate · 08:00-21:00",
+        },
+      ],
+    });
+  });
+
   it("emits cards in the structured array order", () => {
     const chunks = translateZentraSse(
       frame({ type: "message_delta", text: "Here are my picks." }) +
