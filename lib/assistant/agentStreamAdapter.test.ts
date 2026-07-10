@@ -296,6 +296,43 @@ describe("recommendation cards", () => {
     ).toBeNull();
   });
 
+  it("accepts backend recommendation source", () => {
+    expect(
+      buildRecommendationCards({
+        type: "recommendations",
+        data: {
+          source: "recommend",
+          items: [
+            {
+              candidate_id: "recommend:fort-tryon",
+              rank: 1,
+              reason: "",
+              name: "Fort Tryon Park",
+              lat: 40.8617,
+              lng: -73.9326,
+              subtitle: "Washington Heights",
+              detail: "park · Very quiet",
+            },
+          ],
+        },
+      }),
+    ).toEqual({
+      source: "recommend",
+      items: [
+        {
+          candidateId: "recommend:fort-tryon",
+          rank: 1,
+          reason: "",
+          name: "Fort Tryon Park",
+          lat: 40.8617,
+          lng: -73.9326,
+          subtitle: "Washington Heights",
+          detail: "park · Very quiet",
+        },
+      ],
+    });
+  });
+
   it("emits cards in the structured array order", () => {
     const chunks = translateZentraSse(
       frame({ type: "message_delta", text: "Here are my picks." }) +
