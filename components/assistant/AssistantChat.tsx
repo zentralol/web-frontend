@@ -105,6 +105,8 @@ function AssistantMessageRow({
                         source={data.source}
                         items={data.items}
                         description={data.summary}
+                        startDate={data.startDate}
+                        endDate={data.endDate}
                         conversationId={conversationId}
                       />
                     )}

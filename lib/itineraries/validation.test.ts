@@ -135,6 +135,48 @@ describe("parseSaveItineraryInput", () => {
     expect(result.description).toBe("Here is a relaxed morning plan.");
   });
 
+  it("parses valid ISO start and end dates", () => {
+    // Act
+    const result = parseSaveItineraryInput({
+      source: "itinerary",
+      items: [validItem],
+      startDate: "2026-07-10",
+      endDate: "2026-07-12",
+    });
+
+    // Assert
+    expect(result.startDate).toBe("2026-07-10");
+    expect(result.endDate).toBe("2026-07-12");
+  });
+
+  it("accepts snake_case date fields from persisted data", () => {
+    // Act
+    const result = parseSaveItineraryInput({
+      source: "itinerary",
+      items: [validItem],
+      start_date: "2026-07-10",
+      end_date: "2026-07-10",
+    });
+
+    // Assert
+    expect(result.startDate).toBe("2026-07-10");
+    expect(result.endDate).toBe("2026-07-10");
+  });
+
+  it("drops malformed dates", () => {
+    // Act
+    const result = parseSaveItineraryInput({
+      source: "itinerary",
+      items: [validItem],
+      startDate: "not-a-date",
+      endDate: "2026-07-10",
+    });
+
+    // Assert
+    expect(result.startDate).toBeUndefined();
+    expect(result.endDate).toBe("2026-07-10");
+  });
+
   it("drops a whitespace-only description", () => {
     // Act
     const result = parseSaveItineraryInput({

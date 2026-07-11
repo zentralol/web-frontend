@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Loader2, MapPin, Trash2 } from "lucide-react";
+import { Loader2, MapPin, Trash2, CalendarDays } from "lucide-react";
 import { spaceGrotesk } from "@/app/ui/fonts";
 import { PlaceCards } from "@/components/assistant/PlaceCards";
 import { MarkdownMessage } from "@/components/assistant/MarkdownMessage";
@@ -29,6 +29,24 @@ function formatSavedDate(iso: string): string {
   });
 }
 
+function formatDateRange(startDate: string | null, endDate: string | null): string {
+  if (!startDate || !endDate) {
+    return "";
+  }
+  const start = new Date(startDate);
+  const end = new Date(endDate);
+  if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) {
+    return "";
+  }
+  const options: Intl.DateTimeFormatOptions = { month: "short", day: "numeric" };
+  const startText = start.toLocaleDateString(undefined, options);
+  const endText = end.toLocaleDateString(undefined, {
+    ...options,
+    year: start.getFullYear() === end.getFullYear() ? undefined : "numeric",
+  });
+  return startText === endText ? startText : `${startText} – ${endText}`;
+}
+
 interface SavedTripCardProps {
   itinerary: SavedItinerary;
   onDelete: (id: string) => Promise<void>;
@@ -39,6 +57,7 @@ export function SavedTripCard({ itinerary, onDelete }: SavedTripCardProps) {
 
   const placeCount = itinerary.items.length;
   const savedDate = formatSavedDate(itinerary.createdAt);
+  const dateRange = formatDateRange(itinerary.startDate, itinerary.endDate);
 
   const handleDelete = async () => {
     if (isDeleting) return;
@@ -67,6 +86,12 @@ export function SavedTripCard({ itinerary, onDelete }: SavedTripCardProps) {
               <MapPin className="h-3 w-3" aria-hidden />
               {placeCount} {placeCount === 1 ? "place" : "places"}
             </span>
+            {dateRange && (
+              <span className="flex items-center gap-1">
+                <CalendarDays className="h-3 w-3" aria-hidden />
+                {dateRange}
+              </span>
+            )}
             {savedDate && <span>Saved {savedDate}</span>}
           </div>
         </div>

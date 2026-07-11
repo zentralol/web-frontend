@@ -14,11 +14,16 @@ const MAX_TITLE_LENGTH = 120;
 const MAX_DESCRIPTION_LENGTH = 1000;
 const MAX_NOTE_LENGTH = 2000;
 
+// YYYY-MM-DD, e.g. 2026-07-10
+const ISO_DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
+
 export type ParsedSaveItinerary = {
   source: ItinerarySource;
   items: PlaceCardItem[];
   description?: string;
   title?: string;
+  startDate?: string;
+  endDate?: string;
   conversationId: string | null;
 };
 
@@ -42,6 +47,17 @@ function requireString(value: unknown): string {
 
 function optionalString(value: unknown, fallback = ""): string {
   return typeof value === "string" ? value : fallback;
+}
+
+function optionalIsoDate(value: unknown): string | undefined {
+  if (typeof value !== "string") {
+    return undefined;
+  }
+  const trimmed = value.trim();
+  if (!trimmed || !ISO_DATE_RE.test(trimmed)) {
+    return undefined;
+  }
+  return trimmed;
 }
 
 function requireFiniteNumber(value: unknown): number {
@@ -108,6 +124,9 @@ export function parseSaveItineraryInput(input: unknown): ParsedSaveItinerary {
   const conversationId =
     typeof object.conversationId === "string" ? object.conversationId : null;
 
+  const startDate = optionalIsoDate(object.startDate ?? object.start_date);
+  const endDate = optionalIsoDate(object.endDate ?? object.end_date);
+
   let description: string | undefined;
   if (object.description !== undefined && object.description !== null) {
     // The description is a model-generated plan summary; truncate rather than
@@ -134,6 +153,8 @@ export function parseSaveItineraryInput(input: unknown): ParsedSaveItinerary {
     items,
     description,
     title,
+    startDate,
+    endDate,
     conversationId,
   };
 }

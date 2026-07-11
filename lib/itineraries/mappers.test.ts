@@ -22,6 +22,8 @@ const baseRow: SavedItineraryRow = {
   ],
   description: "A cozy Greenwich Village morning.",
   note: "Bring cash",
+  start_date: "2026-07-10",
+  end_date: "2026-07-12",
   created_at: "2026-07-11T00:00:00.000Z",
   deleted_at: null,
 };
@@ -39,6 +41,8 @@ describe("rowToSavedItinerary", () => {
       items: baseRow.items,
       description: "A cozy Greenwich Village morning.",
       note: "Bring cash",
+      startDate: "2026-07-10",
+      endDate: "2026-07-12",
       conversationId: "conv-1",
       createdAt: "2026-07-11T00:00:00.000Z",
     });

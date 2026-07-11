@@ -12,6 +12,8 @@ interface SaveItineraryButtonProps {
   source: PlaceCardsData["source"];
   items: PlaceCardsData["items"];
   description?: string;
+  startDate?: string;
+  endDate?: string;
   conversationId?: string | null;
 }
 
@@ -26,6 +28,8 @@ export function SaveItineraryButton({
   source,
   items,
   description,
+  startDate,
+  endDate,
   conversationId,
 }: SaveItineraryButtonProps) {
   const [status, setStatus] = useState<SaveStatus>("idle");
@@ -42,7 +46,7 @@ export function SaveItineraryButton({
 
     setStatus("saving");
     try {
-      await saveItineraryAction({ source, items, description, conversationId });
+      await saveItineraryAction({ source, items, description, startDate, endDate, conversationId });
       setStatus("saved");
     } catch {
       setStatus("error");
