@@ -11,7 +11,7 @@ const ITINERARY_SOURCES = new Set<ItinerarySource>([
 
 const MAX_ITEMS = 50;
 const MAX_TITLE_LENGTH = 120;
-const MAX_DESCRIPTION_LENGTH = 8000;
+const MAX_DESCRIPTION_LENGTH = 1000;
 const MAX_NOTE_LENGTH = 2000;
 
 export type ParsedSaveItinerary = {
@@ -110,13 +110,11 @@ export function parseSaveItineraryInput(input: unknown): ParsedSaveItinerary {
 
   let description: string | undefined;
   if (object.description !== undefined && object.description !== null) {
-    const raw = requireString(object.description);
-    if (raw.length > MAX_DESCRIPTION_LENGTH) {
-      invalidItinerary();
-    }
-    const trimmed = raw.trim();
+    // The description is a model-generated plan summary; truncate rather than
+    // reject so an over-long output never blocks the save.
+    const trimmed = requireString(object.description).trim();
     if (trimmed.length > 0) {
-      description = trimmed;
+      description = trimmed.slice(0, MAX_DESCRIPTION_LENGTH);
     }
   }
 

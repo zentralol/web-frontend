@@ -147,14 +147,16 @@ describe("parseSaveItineraryInput", () => {
     expect(result.description).toBeUndefined();
   });
 
-  it("rejects a description over the max length", () => {
-    expect(() =>
-      parseSaveItineraryInput({
-        source: "itinerary",
-        items: [validItem],
-        description: "x".repeat(8001),
-      }),
-    ).toThrow("Invalid itinerary");
+  it("truncates an over-long description to the cap", () => {
+    // Act
+    const result = parseSaveItineraryInput({
+      source: "itinerary",
+      items: [validItem],
+      description: "x".repeat(5000),
+    });
+
+    // Assert
+    expect(result.description).toHaveLength(1000);
   });
 });
 
