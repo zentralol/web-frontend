@@ -36,6 +36,30 @@ export function getHighlightedConversationId(
   return pendingConversationId ?? activeConversationId;
 }
 
+type IsConversationListBlockedArgs = {
+  isPending: boolean;
+  deletingConversationId: string | null;
+  visiblePendingConversationId: string | null;
+};
+
+/**
+ * The conversation list is "blocked" while any mutation of it is in flight:
+ * a navigation transition, a delete request, or a conversation switch that
+ * has not yet been reflected in the URL. Destructive actions (delete) must
+ * be disabled during these windows to avoid racing the in-flight operation.
+ */
+export function isConversationListBlocked({
+  isPending,
+  deletingConversationId,
+  visiblePendingConversationId,
+}: IsConversationListBlockedArgs): boolean {
+  return (
+    isPending ||
+    deletingConversationId !== null ||
+    visiblePendingConversationId !== null
+  );
+}
+
 type CanDeleteConversationArgs = {
   conversationsLength: number;
   conversationId: string;

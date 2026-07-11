@@ -5,6 +5,7 @@ import {
   canDeleteConversation,
   getHighlightedConversationId,
   isConversationEmpty,
+  isConversationListBlocked,
   resolveVisiblePendingId,
 } from "./conversationState";
 
@@ -54,6 +55,48 @@ describe("getHighlightedConversationId", () => {
 
   it("falls back to the active id", () => {
     expect(getHighlightedConversationId(null, "active")).toBe("active");
+  });
+});
+
+describe("isConversationListBlocked", () => {
+  it("returns true while a transition is pending", () => {
+    expect(
+      isConversationListBlocked({
+        isPending: true,
+        deletingConversationId: null,
+        visiblePendingConversationId: null,
+      }),
+    ).toBe(true);
+  });
+
+  it("returns true while a conversation is being deleted", () => {
+    expect(
+      isConversationListBlocked({
+        isPending: false,
+        deletingConversationId: "a",
+        visiblePendingConversationId: null,
+      }),
+    ).toBe(true);
+  });
+
+  it("returns true while a conversation switch has not settled", () => {
+    expect(
+      isConversationListBlocked({
+        isPending: false,
+        deletingConversationId: null,
+        visiblePendingConversationId: "b",
+      }),
+    ).toBe(true);
+  });
+
+  it("returns false when nothing is in flight", () => {
+    expect(
+      isConversationListBlocked({
+        isPending: false,
+        deletingConversationId: null,
+        visiblePendingConversationId: null,
+      }),
+    ).toBe(false);
   });
 });
 

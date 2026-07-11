@@ -1,3 +1,4 @@
+import { Suspense } from "react";
 import { auth } from "@clerk/nextjs/server";
 import { redirect } from "next/navigation";
 import RoutesWorkspace from "@/components/routes/RoutesWorkspace";
@@ -18,5 +19,9 @@ export default async function RoutesPage() {
     redirect("/onboarding");
   }
 
-  return <RoutesWorkspace />;
+  return (
+    <Suspense>
+      <RoutesWorkspace />
+    </Suspense>
+  );
 }

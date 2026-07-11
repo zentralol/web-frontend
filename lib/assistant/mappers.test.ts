@@ -45,6 +45,7 @@ describe("rowToUIMessage", () => {
       prompt_tokens: null,
       completion_tokens: null,
       metadata: { ui_message_id: "ui-1" },
+      parts: null,
       created_at: "2026-01-01T00:00:00Z",
       deleted_at: null,
     };
@@ -66,6 +67,7 @@ describe("rowToUIMessage", () => {
       prompt_tokens: null,
       completion_tokens: null,
       metadata: null,
+      parts: null,
       created_at: "2026-01-01T00:00:00Z",
       deleted_at: null,
     };
@@ -74,6 +76,49 @@ describe("rowToUIMessage", () => {
 
     expect(message.id).toBe("row-1");
     expect(message.role).toBe("assistant");
+  });
+
+  it("restores persisted place cards as a data part", () => {
+    const row: MessageRow = {
+      id: "row-1",
+      conversation_id: "conv-1",
+      role: "assistant",
+      content: "I picked one.",
+      model: null,
+      prompt_tokens: null,
+      completion_tokens: null,
+      metadata: { ui_message_id: "ui-1" },
+      parts: [
+        {
+          type: "data-places",
+          data: {
+            source: "nearby",
+            items: [
+              {
+                candidate_id: "google:place-a",
+                rank: 1,
+                reason: "Nearby",
+                name: "Place A",
+                lat: 40.7,
+                lng: -73.9,
+                subtitle: "1 Main St",
+                detail: "Cafe",
+              },
+            ],
+          },
+        },
+      ],
+      created_at: "2026-01-01T00:00:00Z",
+      deleted_at: null,
+    };
+
+    const message = rowToUIMessage(row);
+
+    expect(message.parts).toHaveLength(2);
+    expect(message.parts[1]).toMatchObject({
+      type: "data-places",
+      data: { items: [{ candidateId: "google:place-a", rank: 1 }] },
+    });
   });
 
   it("maps system role to assistant", () => {
@@ -86,6 +131,7 @@ describe("rowToUIMessage", () => {
       prompt_tokens: null,
       completion_tokens: null,
       metadata: null,
+      parts: null,
       created_at: "2026-01-01T00:00:00Z",
       deleted_at: null,
     };
@@ -110,6 +156,7 @@ describe("uiMessageToRow", () => {
     expect(row.role).toBe("user");
     expect(row.content).toBe("Hello");
     expect(row.metadata).toEqual({ ui_message_id: "ui-1" });
+    expect(row.parts).toEqual([]);
   });
 
   it("includes optional model and token usage", () => {

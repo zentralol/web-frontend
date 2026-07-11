@@ -3,15 +3,26 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useChat } from "@ai-sdk/react";
 import { AlertCircle, Bot, Send, User } from "lucide-react";
-import { DefaultChatTransport, type UIMessage } from "ai";
+import { type UIMessage } from "ai";
+import { createAgentChatTransport } from "@/lib/assistant/agentChatTransport";
+import { useAuthenticatedBackendFetch } from "@/lib/backend/useAuthenticatedBackendFetch";
+import { useGeolocation } from "@/lib/geo/useGeolocation";
 import { spaceGrotesk } from "@/app/ui/fonts";
 import { MarkdownMessage } from "@/components/assistant/MarkdownMessage";
+import { PlaceCards } from "@/components/assistant/PlaceCards";
+import {
+  getActiveToolFromParts,
+  PLACE_CARDS_DATA_TYPE,
+  type PlaceCardsData,
+} from "@/lib/assistant/agentStreamAdapter";
 import { useConversationEmptiness } from "@/components/assistant/conversationEmptinessContext";
 import { extractMessageText } from "@/lib/assistant/mappers";
+import { useAssistantThinking } from "@/lib/assistant/useStreamStall";
 import {
   WELCOME_MESSAGE_ID,
   isConversationEmpty,
 } from "@/lib/assistant/conversationState";
+import { titleFromUserMessage } from "@/lib/assistant/titleUtils";
 
 const WELCOME_MESSAGE: UIMessage = {
   id: WELCOME_MESSAGE_ID,
@@ -36,6 +47,64 @@ type AssistantChatProps = {
   initialMessages: UIMessage[];
 };
 
+type AssistantMessageRowProps = {
+  content: string;
+  parts: UIMessage["parts"];
+  isThinking: boolean;
+  isStreaming: boolean;
+};
+
+function AssistantMessageRow({
+  content,
+  parts,
+  isThinking,
+  isStreaming,
+}: AssistantMessageRowProps) {
+  return (
+    <div
+      className="mr-auto flex max-w-[92%] gap-3 sm:max-w-[85%]"
+      role={isThinking ? "status" : undefined}
+      aria-live={isThinking ? "polite" : undefined}
+      aria-label={isThinking ? "Assistant is thinking" : undefined}
+    >
+      <div
+        className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-white/10 bg-white/5 text-white/70 ${
+          isThinking ? "animate-breath text-accent" : ""
+        }`}
+      >
+        <Bot className="h-3.5 w-3.5" />
+      </div>
+
+      <div
+        className={`rounded-xl border border-white/5 bg-surface px-3 py-2.5 text-sm leading-relaxed text-white/75 sm:px-4 sm:py-3 ${
+          isThinking ? "animate-breath" : ""
+        }`}
+      >
+        {isThinking && !content ? (
+          <span className="text-white/55">Thinking...</span>
+        ) : (
+          <>
+            {content ? <MarkdownMessage content={content} /> : null}
+            {isStreaming && (
+              <span className="ml-0.5 animate-pulse text-accent align-baseline">
+                ▍
+              </span>
+            )}
+            {parts
+              .filter((part) => part.type === PLACE_CARDS_DATA_TYPE)
+              .map((part, index) => (
+                <PlaceCards
+                  key={index}
+                  {...((part as { data: PlaceCardsData }).data)}
+                />
+              ))}
+          </>
+        )}
+      </div>
+    </div>
+  );
+}
+
 export function AssistantChat({
   conversationId,
   initialMessages,
@@ -43,24 +112,20 @@ export function AssistantChat({
   const [inputValue, setInputValue] = useState("");
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
+  const backendFetch = useAuthenticatedBackendFetch();
   const transport = useMemo(
-    () =>
-      new DefaultChatTransport({
-        api: "/api/assistant",
-        prepareSendMessagesRequest({ id, messages }) {
-          return {
-            body: {
-              id,
-              message: messages[messages.length - 1],
-            },
-          };
-        },
-      }),
-    [],
+    () => createAgentChatTransport(backendFetch),
+    [backendFetch],
   );
+  const { coords } = useGeolocation();
 
   const seedMessages =
     initialMessages.length > 0 ? initialMessages : [WELCOME_MESSAGE];
+
+  const { setActiveConversationEmpty, requestSidebarRefresh, setOptimisticTitle } =
+    useConversationEmptiness();
+
+  const previousStatusRef = useRef<string | null>(null);
 
   const { messages, sendMessage, status, error } = useChat({
     id: conversationId,
@@ -72,11 +137,40 @@ export function AssistantChat({
   const hasUserMessages = messages.some((message) => message.role === "user");
   const showSuggestedQuestions = !hasUserMessages && !isLoading;
 
-  const { setActiveConversationEmpty } = useConversationEmptiness();
+  const lastMessage = messages[messages.length - 1];
+  const isActiveTurn = status === "submitted" || status === "streaming";
+  const activeAssistantMessageId =
+    isActiveTurn && lastMessage?.role === "assistant" ? lastMessage.id : null;
+  const lastAssistantMessage = [...messages]
+    .reverse()
+    .find((message) => message.role === "assistant");
+  const activeTool = lastAssistantMessage
+    ? getActiveToolFromParts(lastAssistantMessage.parts)
+    : null;
+  const showThinking = useAssistantThinking(
+    status,
+    messages,
+    activeAssistantMessageId,
+    activeTool,
+  );
+  const needsThinkingPlaceholder =
+    showThinking && status === "submitted" && activeAssistantMessageId === null;
+
+  useEffect(() => {
+    const previousStatus = previousStatusRef.current;
+    previousStatusRef.current = status;
+
+    if (
+      (previousStatus === "streaming" || previousStatus === "submitted") &&
+      status === "ready"
+    ) {
+      requestSidebarRefresh();
+    }
+  }, [status, requestSidebarRefresh]);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages, status]);
+  }, [messages, status, showThinking]);
 
   useEffect(() => {
     setActiveConversationEmpty(isConversationEmpty(messages));
@@ -88,15 +182,19 @@ export function AssistantChat({
     const trimmed = text.trim();
     setInputValue("");
 
-    await sendMessage({ text: trimmed });
+    if (!hasUserMessages) {
+      setOptimisticTitle(conversationId, titleFromUserMessage(trimmed));
+    }
+
+    await sendMessage(
+      { text: trimmed },
+      coords ? { body: { lat: coords.lat, lng: coords.lng } } : undefined,
+    );
   };
 
-  const lastMessage = messages[messages.length - 1];
-  const showThinking = status === "submitted";
-
   return (
-    <div className="flex min-h-0 min-w-0 max-w-full flex-1 flex-col overflow-hidden px-4 py-6 sm:px-6">
-      <div className="mb-6 shrink-0">
+    <div className="flex min-h-0 min-w-0 max-w-full flex-1 flex-col overflow-hidden px-4 py-4 sm:px-6 sm:py-6">
+      <div className="mb-6 hidden shrink-0 sm:block">
         <h1
           className={`${spaceGrotesk.className} text-2xl font-light tracking-tight text-white sm:text-3xl`}
         >
@@ -112,81 +210,64 @@ export function AssistantChat({
           {messages.map((message) => {
             const isUser = message.role === "user";
             const content = extractMessageText(message);
-            const isStreamingAssistant =
-              !isUser &&
-              status === "streaming" &&
-              message.id === lastMessage?.id;
 
-            if (!isUser && !content && status === "submitted") {
-              return null;
+            if (!isUser) {
+              const isThinkingBubble =
+                showThinking && message.id === activeAssistantMessageId;
+              const isStreamingAssistant =
+                status === "streaming" &&
+                message.id === lastMessage?.id &&
+                !showThinking;
+
+              return (
+                <AssistantMessageRow
+                  key={message.id}
+                  content={content}
+                  parts={message.parts}
+                  isThinking={isThinkingBubble}
+                  isStreaming={isStreamingAssistant}
+                />
+              );
             }
 
             return (
               <div
                 key={message.id}
-                className={`flex max-w-[85%] gap-3 ${isUser ? "ml-auto flex-row-reverse" : "mr-auto"}`}
+                className="ml-auto flex max-w-[92%] flex-row-reverse gap-3 sm:max-w-[85%]"
               >
-                <div
-                  className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full border ${
-                    isUser
-                      ? "border-accent/20 bg-accent/10 text-accent"
-                      : "border-white/10 bg-white/5 text-white/70"
-                  }`}
-                >
-                  {isUser ? (
-                    <User className="h-3.5 w-3.5" />
-                  ) : (
-                    <Bot className="h-3.5 w-3.5" />
-                  )}
+                <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-accent/20 bg-accent/10 text-accent">
+                  <User className="h-3.5 w-3.5" />
                 </div>
 
-                <div
-                  className={`rounded-xl border px-4 py-3 text-sm leading-relaxed ${
-                    isUser
-                      ? "border-accent/25 bg-accent/10 text-white"
-                      : "border-white/5 bg-surface text-white/75"
-                  }`}
-                >
-                  {isUser ? (
-                    <p className="whitespace-pre-wrap">{content}</p>
-                  ) : (
-                    <>
-                      <MarkdownMessage content={content} />
-                      {isStreamingAssistant && (
-                        <span className="ml-0.5 animate-pulse text-accent align-baseline">
-                          ▍
-                        </span>
-                      )}
-                    </>
-                  )}
+                <div className="rounded-xl border border-accent/25 bg-accent/10 px-3 py-2.5 text-sm leading-relaxed text-white sm:px-4 sm:py-3">
+                  <p className="whitespace-pre-wrap">{content}</p>
                 </div>
               </div>
             );
           })}
 
+          {needsThinkingPlaceholder && (
+            <AssistantMessageRow
+              key="thinking-placeholder"
+              content=""
+              parts={[]}
+              isThinking
+              isStreaming={false}
+            />
+          )}
+
           {showSuggestedQuestions && (
-            <div className="mr-auto flex w-full max-w-[85%] flex-col gap-2 pl-11">
+            <div className="mr-auto flex w-full max-w-[92%] flex-col gap-2 pl-0 sm:max-w-[85%] sm:pl-11">
               {SUGGESTED_QUESTIONS.map((question) => (
                 <button
                   key={question}
                   type="button"
                   onClick={() => void handleSendMessage(question)}
-                  className="rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-left text-sm text-white/80 transition-colors hover:border-white/20 hover:bg-white/10"
+                  className="rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-left text-xs text-white/80 transition-colors hover:border-white/20 hover:bg-white/10 sm:text-sm"
                 >
                   {question}
                 </button>
               ))}
-            </div>
-          )}
-
-          {showThinking && (
-            <div className="mr-auto flex max-w-[85%] gap-3">
-              <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-white/10 bg-white/5 text-accent">
-                <Bot className="h-3.5 w-3.5" />
-              </div>
-              <div className="rounded-xl border border-white/5 bg-surface px-4 py-3 text-sm text-white/55">
-                Thinking...
-              </div>
             </div>
           )}
 
@@ -200,7 +281,7 @@ export function AssistantChat({
           <div ref={messagesEndRef} />
         </div>
 
-        <div className="shrink-0 border-t border-white/10 p-4">
+        <div className="shrink-0 border-t border-white/10 p-4 pb-[max(1rem,env(safe-area-inset-bottom))]">
           <form
             onSubmit={(event) => {
               event.preventDefault();
@@ -213,12 +294,12 @@ export function AssistantChat({
               value={inputValue}
               onChange={(event) => setInputValue(event.target.value)}
               placeholder="Ask about routes, transit, or walking options..."
-              className="flex-1 rounded-lg border border-white/10 bg-surface px-4 py-3 text-sm text-white placeholder:text-white/40 focus:border-accent/50 focus:outline-none disabled:opacity-50"
+              className="flex-1 rounded-lg border border-white/10 bg-surface px-4 py-2.5 text-sm text-white placeholder:text-white/40 focus:border-accent/50 focus:outline-none disabled:opacity-50 sm:py-3"
             />
             <button
               type="submit"
               disabled={!inputValue.trim() || isLoading}
-              className={`${spaceGrotesk.className} rounded-lg bg-accent px-4 py-3 text-surface transition-opacity hover:opacity-90 disabled:opacity-40`}
+              className={`${spaceGrotesk.className} rounded-lg bg-accent px-4 py-2.5 text-surface transition-opacity hover:opacity-90 disabled:opacity-40 sm:py-3`}
               aria-label="Send message"
             >
               <Send className="h-4 w-4" />

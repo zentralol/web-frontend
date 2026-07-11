@@ -9,6 +9,7 @@ import {
   softDeleteConversation,
 } from "./queries";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
+import type { ConversationSummary } from "./types";
 
 async function requireUserId() {
   const { userId } = await auth();
@@ -23,8 +24,14 @@ export async function createConversationAction(): Promise<string> {
   const supabase = await createServerSupabaseClient();
   const conversation = await createConversation(supabase, userId);
 
-  revalidatePath("/assistant");
+  revalidatePath("/assistant", "layout");
   return conversation.id;
+}
+
+export async function listConversationsAction(): Promise<ConversationSummary[]> {
+  const userId = await requireUserId();
+  const supabase = await createServerSupabaseClient();
+  return listConversations(supabase, userId);
 }
 
 export async function deleteConversationAction(
@@ -45,7 +52,7 @@ export async function deleteConversationAction(
   await softDeleteConversation(supabase, userId, conversationId);
 
   const remaining = await listConversations(supabase, userId);
-  revalidatePath("/assistant");
+  revalidatePath("/assistant", "layout");
 
   if (remaining.length === 0) {
     const conversation = await createConversation(supabase, userId);

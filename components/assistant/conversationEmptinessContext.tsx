@@ -5,18 +5,21 @@ import { createContext, useContext } from "react";
 type ConversationEmptinessContextValue = {
   isActiveConversationEmpty: boolean;
   setActiveConversationEmpty: (isEmpty: boolean) => void;
+  requestSidebarRefresh: () => void;
+  setOptimisticTitle: (conversationId: string, title: string) => void;
 };
 
 /**
- * Bridges the active conversation's "empty" state from the chat (rendered as a
- * route child) up to the persistent sidebar (rendered in the layout shell).
- * A safe default keeps the chat usable even if it is ever rendered without the
- * provider.
+ * Bridges chat state from the route child up to the persistent layout shell:
+ * emptiness for "New chat" disabling, sidebar refresh after turns, and
+ * optimistic titles before the server generates one.
  */
 const ConversationEmptinessContext =
   createContext<ConversationEmptinessContextValue>({
     isActiveConversationEmpty: false,
     setActiveConversationEmpty: () => {},
+    requestSidebarRefresh: () => {},
+    setOptimisticTitle: () => {},
   });
 
 export const ConversationEmptinessProvider =

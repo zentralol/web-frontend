@@ -3,7 +3,7 @@ function MessageBubbleSkeleton({ align }: { align: "left" | "right" }) {
 
   return (
     <div
-      className={`flex min-w-0 max-w-[85%] gap-3 ${isUser ? "ml-auto flex-row-reverse" : "mr-auto"}`}
+      className={`flex min-w-0 max-w-[92%] gap-3 sm:max-w-[85%] ${isUser ? "ml-auto flex-row-reverse" : "mr-auto"}`}
     >
       <div className="h-8 w-8 shrink-0 animate-pulse rounded-full bg-white/10" />
       <div
@@ -28,11 +28,11 @@ function MessageBubbleSkeleton({ align }: { align: "left" | "right" }) {
 export function AssistantChatSkeleton() {
   return (
     <div
-      className="flex min-h-0 min-w-0 max-w-full flex-1 flex-col overflow-hidden px-4 py-6 sm:px-6"
+      className="flex min-h-0 min-w-0 max-w-full flex-1 flex-col overflow-hidden px-4 py-4 sm:px-6 sm:py-6"
       aria-busy="true"
       aria-label="Loading conversation"
     >
-      <div className="mb-6 shrink-0 animate-pulse space-y-3">
+      <div className="mb-6 hidden shrink-0 animate-pulse space-y-3 sm:block">
         <div className="h-8 w-56 rounded bg-white/10 sm:w-64" />
         <div className="h-4 w-80 max-w-full rounded bg-white/10" />
       </div>
@@ -45,10 +45,10 @@ export function AssistantChatSkeleton() {
           <MessageBubbleSkeleton align="left" />
         </div>
 
-        <div className="shrink-0 border-t border-white/10 p-4">
+        <div className="shrink-0 border-t border-white/10 p-4 pb-[max(1rem,env(safe-area-inset-bottom))]">
           <div className="flex animate-pulse gap-2">
-            <div className="h-12 flex-1 rounded-lg bg-white/10" />
-            <div className="h-12 w-12 shrink-0 rounded-lg bg-white/10" />
+            <div className="h-11 flex-1 rounded-lg bg-white/10 sm:h-12" />
+            <div className="h-11 w-11 shrink-0 rounded-lg bg-white/10 sm:h-12 sm:w-12" />
           </div>
         </div>
       </div>

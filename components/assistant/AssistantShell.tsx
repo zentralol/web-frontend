@@ -1,26 +1,43 @@
 "use client";
 
-import { useMemo, useState, useTransition, type ReactNode } from "react";
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  useTransition,
+  type ReactNode,
+} from "react";
 import { useParams, useRouter } from "next/navigation";
+import { MessageSquarePlus, PanelLeft } from "lucide-react";
 import { ConversationSidebar } from "@/components/assistant/ConversationSidebar";
 import { ConversationEmptinessProvider } from "@/components/assistant/conversationEmptinessContext";
 import {
   canDeleteConversation as evaluateCanDeleteConversation,
+  isConversationListBlocked,
   resolveVisiblePendingId,
 } from "@/lib/assistant/conversationState";
+import { logger } from "@/lib/logger";
+import {
+  resolveSidebarRefreshDelays,
+  scheduleSidebarRefresh,
+} from "@/lib/assistant/refreshSidebar";
 import type { ConversationSummary } from "@/lib/assistant/types";
 import {
   createConversationAction,
   deleteConversationAction,
+  listConversationsAction,
 } from "@/lib/assistant/actions";
+import { spaceGrotesk } from "@/app/ui/fonts";
 
 type AssistantShellProps = {
-  conversations: ConversationSummary[];
+  initialConversations: ConversationSummary[];
   children: ReactNode;
 };
 
 export function AssistantShell({
-  conversations,
+  initialConversations,
   children,
 }: AssistantShellProps) {
   const router = useRouter();
@@ -28,16 +45,135 @@ export function AssistantShell({
   const activeConversationId = params.conversationId;
 
   const [isPending, startTransition] = useTransition();
+  const [conversations, setConversations] =
+    useState<ConversationSummary[]>(initialConversations);
   const [pendingConversationId, setPendingConversationId] = useState<
     string | null
   >(null);
   const [isActiveConversationEmpty, setActiveConversationEmpty] =
     useState(false);
+  const [deletingConversationId, setDeletingConversationId] = useState<
+    string | null
+  >(null);
+  const [optimisticTitles, setOptimisticTitles] = useState<
+    Record<string, string>
+  >({});
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+
+  const refreshCleanupRef = useRef<(() => void) | null>(null);
+  const conversationsRef = useRef(conversations);
+
+  useEffect(() => {
+    conversationsRef.current = conversations;
+  }, [conversations]);
+
+  useEffect(() => {
+    setConversations(initialConversations);
+  }, [initialConversations]);
 
   const visiblePendingConversationId = resolveVisiblePendingId(
     pendingConversationId,
     activeConversationId,
   );
+
+  const isListBlocked = isConversationListBlocked({
+    isPending,
+    deletingConversationId,
+    visiblePendingConversationId,
+  });
+
+  const requestSidebarRefresh = useCallback(() => {
+    refreshCleanupRef.current?.();
+
+    const conversationId = activeConversationId;
+    const waitForTitle = !conversationsRef.current.find(
+      (item) => item.id === conversationId,
+    )?.title;
+
+    let cancelled = false;
+
+    const cleanup = scheduleSidebarRefresh(async () => {
+      if (cancelled) {
+        return;
+      }
+
+      const fresh = await listConversationsAction();
+      if (cancelled) {
+        return;
+      }
+
+      setConversations(fresh);
+
+      if (waitForTitle) {
+        const active = fresh.find((item) => item.id === conversationId);
+        if (active?.title) {
+          cancelled = true;
+          refreshCleanupRef.current?.();
+          refreshCleanupRef.current = null;
+        }
+      }
+    }, resolveSidebarRefreshDelays(waitForTitle));
+
+    refreshCleanupRef.current = () => {
+      cancelled = true;
+      cleanup();
+    };
+  }, [activeConversationId]);
+
+  const setOptimisticTitle = useCallback(
+    (conversationId: string, title: string) => {
+      setOptimisticTitles((current) => ({
+        ...current,
+        [conversationId]: title,
+      }));
+    },
+    [],
+  );
+
+  useEffect(() => {
+    return () => {
+      refreshCleanupRef.current?.();
+    };
+  }, []);
+
+  useEffect(() => {
+    setOptimisticTitles((current) => {
+      let changed = false;
+      const next = { ...current };
+
+      for (const conversation of conversations) {
+        if (conversation.title && next[conversation.id]) {
+          delete next[conversation.id];
+          changed = true;
+        }
+      }
+
+      return changed ? next : current;
+    });
+  }, [conversations]);
+
+  const sidebarConversations = useMemo(
+    () =>
+      conversations.map((conversation) => ({
+        ...conversation,
+        title:
+          conversation.title ?? optimisticTitles[conversation.id] ?? null,
+      })),
+    [conversations, optimisticTitles],
+  );
+
+  const activeConversationTitle =
+    sidebarConversations.find(
+      (conversation) => conversation.id === activeConversationId,
+    )?.title ?? "New chat";
+
+  const closeSidebar = useCallback(() => {
+    setIsSidebarOpen(false);
+  }, []);
+
+  useEffect(() => {
+    closeSidebar();
+  }, [activeConversationId, closeSidebar]);
 
   const canDeleteConversation = (conversationId: string) =>
     evaluateCanDeleteConversation({
@@ -71,43 +207,126 @@ export function AssistantShell({
   };
 
   const handleDeleteConversation = (conversationId: string) => {
-    if (!canDeleteConversation(conversationId)) {
+    if (isListBlocked || !canDeleteConversation(conversationId)) {
       return;
     }
 
+    setDeletingConversationId(conversationId);
     startTransition(async () => {
-      const nextId = await deleteConversationAction(conversationId);
+      try {
+        const nextId = await deleteConversationAction(conversationId);
 
-      if (conversationId === activeConversationId && nextId) {
-        setPendingConversationId(nextId);
-        router.push(`/assistant/${nextId}`);
-        return;
+        if (conversationId === activeConversationId && nextId) {
+          setPendingConversationId(nextId);
+          router.push(`/assistant/${nextId}`);
+          return;
+        }
+
+        const fresh = await listConversationsAction();
+        setConversations(fresh);
+        router.refresh();
+      } catch (error) {
+        logger.error("Conversation deletion failed", {
+          conversationId,
+          error,
+        });
+      } finally {
+        setDeletingConversationId(null);
       }
-
-      router.refresh();
     });
   };
 
-  const emptinessValue = useMemo(
-    () => ({ isActiveConversationEmpty, setActiveConversationEmpty }),
-    [isActiveConversationEmpty],
+  const shellContextValue = useMemo(
+    () => ({
+      isActiveConversationEmpty,
+      setActiveConversationEmpty,
+      requestSidebarRefresh,
+      setOptimisticTitle,
+    }),
+    [
+      isActiveConversationEmpty,
+      requestSidebarRefresh,
+      setOptimisticTitle,
+    ],
   );
 
+  const sidebarProps = {
+    conversations: sidebarConversations,
+    activeConversationId,
+    pendingConversationId: visiblePendingConversationId,
+    isPending,
+    isDeleteDisabled: isListBlocked,
+    isActiveConversationEmpty,
+    canDeleteConversation,
+    onNewChat: handleNewChat,
+    onSelectConversation: handleSelectConversation,
+    onDeleteConversation: handleDeleteConversation,
+  };
+
+  const isNewChatDisabled = isPending || isActiveConversationEmpty;
+
   return (
-    <ConversationEmptinessProvider value={emptinessValue}>
-      <div className="mx-auto flex h-[calc(100vh-var(--viewport-top))] w-full max-w-6xl flex-col overflow-hidden lg:flex-row">
-        <ConversationSidebar
-          conversations={conversations}
-          activeConversationId={activeConversationId}
-          pendingConversationId={visiblePendingConversationId}
-          isPending={isPending}
-          isActiveConversationEmpty={isActiveConversationEmpty}
-          canDeleteConversation={canDeleteConversation}
-          onNewChat={handleNewChat}
-          onSelectConversation={handleSelectConversation}
-          onDeleteConversation={handleDeleteConversation}
-        />
+    <ConversationEmptinessProvider value={shellContextValue}>
+      <div className="mx-auto flex h-[calc(100dvh-var(--viewport-top))] w-full max-w-6xl flex-col overflow-hidden lg:flex-row">
+        <ConversationSidebar {...sidebarProps} />
+
+        {isSidebarOpen && (
+          <>
+            <button
+              type="button"
+              className="fixed inset-0 top-[var(--viewport-top)] z-40 bg-black/60 lg:hidden"
+              aria-label="Close conversation list"
+              onClick={closeSidebar}
+            />
+            <div
+              id="assistant-conversation-drawer"
+              className="fixed inset-y-0 left-0 top-[var(--viewport-top)] z-50 w-[min(100%,320px)] border-r border-white/10 bg-surface lg:hidden"
+            >
+              <ConversationSidebar
+                {...sidebarProps}
+                variant="drawer"
+                onAfterNavigate={closeSidebar}
+              />
+            </div>
+          </>
+        )}
+
         <section className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
+          <div className="flex shrink-0 items-center gap-2 border-b border-white/10 px-4 py-3 lg:hidden">
+            <button
+              type="button"
+              className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-white/70 transition-colors hover:bg-white/5 hover:text-accent"
+              aria-label="Open conversation list"
+              aria-expanded={isSidebarOpen}
+              aria-controls="assistant-conversation-drawer"
+              onClick={() => setIsSidebarOpen(true)}
+            >
+              <PanelLeft className="h-5 w-5" aria-hidden="true" />
+            </button>
+            <p
+              className={`${spaceGrotesk.className} min-w-0 flex-1 truncate text-sm font-medium text-white`}
+            >
+              {activeConversationTitle}
+            </p>
+            <button
+              type="button"
+              onClick={handleNewChat}
+              disabled={isNewChatDisabled}
+              title={
+                isActiveConversationEmpty
+                  ? "Already in a new chat"
+                  : "Start a new chat"
+              }
+              aria-label={
+                isActiveConversationEmpty
+                  ? "Already in a new chat"
+                  : "Start a new chat"
+              }
+              className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-accent transition-colors hover:bg-accent/10 disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              <MessageSquarePlus className="h-5 w-5" aria-hidden="true" />
+            </button>
+          </div>
           {children}
         </section>
       </div>
