@@ -104,6 +104,7 @@ function AssistantMessageRow({
                       <SaveItineraryButton
                         source={data.source}
                         items={data.items}
+                        description={content}
                         conversationId={conversationId}
                       />
                     )}

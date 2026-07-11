@@ -7,8 +7,13 @@ import {
   createSavedItinerary,
   listSavedItineraries,
   softDeleteSavedItinerary,
+  updateSavedItineraryNote,
 } from "./queries";
-import { deriveItineraryTitle, parseSaveItineraryInput } from "./validation";
+import {
+  deriveItineraryTitle,
+  parseNoteInput,
+  parseSaveItineraryInput,
+} from "./validation";
 import type { SavedItinerary } from "./types";
 
 async function requireUserId() {
@@ -49,4 +54,14 @@ export async function deleteSavedItineraryAction(
   const supabase = await createServerSupabaseClient();
   await softDeleteSavedItinerary(supabase, userId, itineraryId);
   revalidatePath("/activity");
+}
+
+export async function updateItineraryNoteAction(
+  itineraryId: string,
+  note: unknown,
+): Promise<void> {
+  const userId = await requireUserId();
+  const parsedNote = parseNoteInput(note);
+  const supabase = await createServerSupabaseClient();
+  await updateSavedItineraryNote(supabase, userId, itineraryId, parsedNote);
 }

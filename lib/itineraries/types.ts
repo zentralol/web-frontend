@@ -14,6 +14,8 @@ export type SavedItineraryRow = {
   title: string;
   source: ItinerarySource;
   items: PlaceCardItem[];
+  description: string | null;
+  note: string | null;
   created_at: string;
   deleted_at: string | null;
 };
@@ -24,6 +26,8 @@ export type SavedItinerary = {
   title: string;
   source: ItinerarySource;
   items: PlaceCardItem[];
+  description: string | null;
+  note: string | null;
   conversationId: string | null;
   createdAt: string;
 };
@@ -32,6 +36,7 @@ export type SavedItinerary = {
 export type SaveItineraryInput = {
   source: ItinerarySource;
   items: PlaceCardItem[];
+  description?: string;
   title?: string;
   conversationId?: string | null;
 };

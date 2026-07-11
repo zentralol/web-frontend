@@ -11,10 +11,13 @@ const ITINERARY_SOURCES = new Set<ItinerarySource>([
 
 const MAX_ITEMS = 50;
 const MAX_TITLE_LENGTH = 120;
+const MAX_DESCRIPTION_LENGTH = 8000;
+const MAX_NOTE_LENGTH = 2000;
 
 export type ParsedSaveItinerary = {
   source: ItinerarySource;
   items: PlaceCardItem[];
+  description?: string;
   title?: string;
   conversationId: string | null;
 };
@@ -105,6 +108,18 @@ export function parseSaveItineraryInput(input: unknown): ParsedSaveItinerary {
   const conversationId =
     typeof object.conversationId === "string" ? object.conversationId : null;
 
+  let description: string | undefined;
+  if (object.description !== undefined && object.description !== null) {
+    const raw = requireString(object.description);
+    if (raw.length > MAX_DESCRIPTION_LENGTH) {
+      invalidItinerary();
+    }
+    const trimmed = raw.trim();
+    if (trimmed.length > 0) {
+      description = trimmed;
+    }
+  }
+
   let title: string | undefined;
   if (object.title !== undefined && object.title !== null) {
     const trimmed = requireString(object.title).trim();
@@ -119,9 +134,27 @@ export function parseSaveItineraryInput(input: unknown): ParsedSaveItinerary {
   return {
     source: source as ItinerarySource,
     items,
+    description,
     title,
     conversationId,
   };
+}
+
+/**
+ * Validate an untrusted user note. Accepts an empty string (clears the note).
+ * Throws when the value is not a string or exceeds the length cap.
+ */
+export function parseNoteInput(input: unknown): string {
+  if (input === undefined || input === null) {
+    return "";
+  }
+  if (typeof input !== "string") {
+    throw new Error("Invalid note");
+  }
+  if (input.length > MAX_NOTE_LENGTH) {
+    throw new Error("Invalid note");
+  }
+  return input;
 }
 
 /** Auto-generate a human-friendly title from a saved itinerary's contents. */

@@ -4,6 +4,8 @@ import { useState } from "react";
 import { Loader2, MapPin, Trash2 } from "lucide-react";
 import { spaceGrotesk } from "@/app/ui/fonts";
 import { PlaceCards } from "@/components/assistant/PlaceCards";
+import { MarkdownMessage } from "@/components/assistant/MarkdownMessage";
+import { NoteEditor } from "@/components/activity/NoteEditor";
 import type { SavedItinerary } from "@/lib/itineraries/types";
 import type { ItinerarySource } from "@/lib/itineraries/types";
 
@@ -83,7 +85,15 @@ export function SavedTripCard({ itinerary, onDelete }: SavedTripCardProps) {
         </button>
       </div>
 
+      {itinerary.description && (
+        <div className="mt-3 rounded-xl border border-white/5 bg-white/[0.02] px-3 py-2.5 text-sm leading-relaxed text-white/70">
+          <MarkdownMessage content={itinerary.description} />
+        </div>
+      )}
+
       <PlaceCards source={itinerary.source} items={itinerary.items} />
+
+      <NoteEditor itineraryId={itinerary.id} initialNote={itinerary.note} />
     </div>
   );
 }

@@ -38,6 +38,7 @@ export async function createSavedItinerary(
       title: payload.title,
       source: payload.source,
       items: payload.items,
+      description: payload.description ?? null,
     })
     .select("*")
     .single();
@@ -54,21 +55,7 @@ export async function softDeleteSavedItinerary(
   userId: string,
   itineraryId: string,
 ): Promise<void> {
-  const { data: existing, error: findError } = await supabase
-    .from(TABLE)
-    .select("id")
-    .eq("id", itineraryId)
-    .eq("user_id", userId)
-    .is("deleted_at", null)
-    .maybeSingle();
-
-  if (findError) {
-    throw findError;
-  }
-
-  if (!existing) {
-    throw new Error("Itinerary not found");
-  }
+  await assertOwnedItinerary(supabase, userId, itineraryId);
 
   const { error } = await supabase
     .from(TABLE)
@@ -78,5 +65,47 @@ export async function softDeleteSavedItinerary(
 
   if (error) {
     throw error;
+  }
+}
+
+export async function updateSavedItineraryNote(
+  supabase: SupabaseClient,
+  userId: string,
+  itineraryId: string,
+  note: string,
+): Promise<void> {
+  await assertOwnedItinerary(supabase, userId, itineraryId);
+
+  const { error } = await supabase
+    .from(TABLE)
+    .update({ note: note.length > 0 ? note : null })
+    .eq("id", itineraryId)
+    .eq("user_id", userId);
+
+  if (error) {
+    throw error;
+  }
+}
+
+/** Ensure the itinerary exists and belongs to the user, or throw. */
+async function assertOwnedItinerary(
+  supabase: SupabaseClient,
+  userId: string,
+  itineraryId: string,
+): Promise<void> {
+  const { data: existing, error } = await supabase
+    .from(TABLE)
+    .select("id")
+    .eq("id", itineraryId)
+    .eq("user_id", userId)
+    .is("deleted_at", null)
+    .maybeSingle();
+
+  if (error) {
+    throw error;
+  }
+
+  if (!existing) {
+    throw new Error("Itinerary not found");
   }
 }

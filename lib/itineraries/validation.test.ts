@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   deriveItineraryTitle,
+  parseNoteInput,
   parseSaveItineraryInput,
 } from "./validation";
 import type { PlaceCardItem } from "@/lib/assistant/agentStreamAdapter";
@@ -120,6 +121,61 @@ describe("parseSaveItineraryInput", () => {
 
     // Assert
     expect(result.title).toBe("My trip");
+  });
+
+  it("keeps a trimmed non-empty description", () => {
+    // Act
+    const result = parseSaveItineraryInput({
+      source: "itinerary",
+      items: [validItem],
+      description: "  Here is a relaxed morning plan.  ",
+    });
+
+    // Assert
+    expect(result.description).toBe("Here is a relaxed morning plan.");
+  });
+
+  it("drops a whitespace-only description", () => {
+    // Act
+    const result = parseSaveItineraryInput({
+      source: "itinerary",
+      items: [validItem],
+      description: "   ",
+    });
+
+    // Assert
+    expect(result.description).toBeUndefined();
+  });
+
+  it("rejects a description over the max length", () => {
+    expect(() =>
+      parseSaveItineraryInput({
+        source: "itinerary",
+        items: [validItem],
+        description: "x".repeat(8001),
+      }),
+    ).toThrow("Invalid itinerary");
+  });
+});
+
+describe("parseNoteInput", () => {
+  it("returns an empty string for null or undefined", () => {
+    expect(parseNoteInput(null)).toBe("");
+    expect(parseNoteInput(undefined)).toBe("");
+  });
+
+  it("preserves a valid note verbatim", () => {
+    expect(parseNoteInput("Bring a jacket\nMeet at 9am")).toBe(
+      "Bring a jacket\nMeet at 9am",
+    );
+  });
+
+  it("rejects a non-string note", () => {
+    expect(() => parseNoteInput(42)).toThrow("Invalid note");
+  });
+
+  it("rejects a note over the max length", () => {
+    expect(() => parseNoteInput("x".repeat(2001))).toThrow("Invalid note");
   });
 });
 
