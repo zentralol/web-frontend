@@ -32,7 +32,7 @@ export function PlaceCards({ items }: PlaceCardsData) {
           key={item.candidateId || `${item.name}-${index}`}
           className="rounded-xl border border-white/10 bg-white/[0.05] p-3"
         >
-          <div className="flex items-start justify-between gap-3">
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
             <div className="min-w-0">
               <div className="flex items-center gap-1.5">
                 <MapPin className="h-3.5 w-3.5 shrink-0 text-accent" aria-hidden />
@@ -59,7 +59,7 @@ export function PlaceCards({ items }: PlaceCardsData) {
             <button
               type="button"
               onClick={() => router.push(buildRoutesHref(item))}
-              className={`${spaceGrotesk.className} flex shrink-0 items-center gap-1 rounded-lg bg-accent px-2.5 py-1.5 text-[11px] font-bold text-surface transition-opacity hover:opacity-90`}
+              className={`${spaceGrotesk.className} flex w-full shrink-0 items-center justify-center gap-1 rounded-lg bg-accent px-2.5 py-1.5 text-[11px] font-bold text-surface transition-opacity hover:opacity-90 sm:w-auto`}
             >
               <Navigation className="h-3 w-3" aria-hidden />
               Take me there

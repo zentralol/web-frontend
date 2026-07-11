@@ -10,6 +10,7 @@ import {
   type ReactNode,
 } from "react";
 import { useParams, useRouter } from "next/navigation";
+import { MessageSquarePlus, PanelLeft } from "lucide-react";
 import { ConversationSidebar } from "@/components/assistant/ConversationSidebar";
 import { ConversationEmptinessProvider } from "@/components/assistant/conversationEmptinessContext";
 import {
@@ -28,6 +29,7 @@ import {
   deleteConversationAction,
   listConversationsAction,
 } from "@/lib/assistant/actions";
+import { spaceGrotesk } from "@/app/ui/fonts";
 
 type AssistantShellProps = {
   initialConversations: ConversationSummary[];
@@ -56,6 +58,7 @@ export function AssistantShell({
   const [optimisticTitles, setOptimisticTitles] = useState<
     Record<string, string>
   >({});
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
 
   const refreshCleanupRef = useRef<(() => void) | null>(null);
   const conversationsRef = useRef(conversations);
@@ -159,6 +162,19 @@ export function AssistantShell({
     [conversations, optimisticTitles],
   );
 
+  const activeConversationTitle =
+    sidebarConversations.find(
+      (conversation) => conversation.id === activeConversationId,
+    )?.title ?? "New chat";
+
+  const closeSidebar = useCallback(() => {
+    setIsSidebarOpen(false);
+  }, []);
+
+  useEffect(() => {
+    closeSidebar();
+  }, [activeConversationId, closeSidebar]);
+
   const canDeleteConversation = (conversationId: string) =>
     evaluateCanDeleteConversation({
       conversationsLength: conversations.length,
@@ -234,22 +250,83 @@ export function AssistantShell({
     ],
   );
 
+  const sidebarProps = {
+    conversations: sidebarConversations,
+    activeConversationId,
+    pendingConversationId: visiblePendingConversationId,
+    isPending,
+    isDeleteDisabled: isListBlocked,
+    isActiveConversationEmpty,
+    canDeleteConversation,
+    onNewChat: handleNewChat,
+    onSelectConversation: handleSelectConversation,
+    onDeleteConversation: handleDeleteConversation,
+  };
+
+  const isNewChatDisabled = isPending || isActiveConversationEmpty;
+
   return (
     <ConversationEmptinessProvider value={shellContextValue}>
-      <div className="mx-auto flex h-[calc(100vh-var(--viewport-top))] w-full max-w-6xl flex-col overflow-hidden lg:flex-row">
-        <ConversationSidebar
-          conversations={sidebarConversations}
-          activeConversationId={activeConversationId}
-          pendingConversationId={visiblePendingConversationId}
-          isPending={isPending}
-          isDeleteDisabled={isListBlocked}
-          isActiveConversationEmpty={isActiveConversationEmpty}
-          canDeleteConversation={canDeleteConversation}
-          onNewChat={handleNewChat}
-          onSelectConversation={handleSelectConversation}
-          onDeleteConversation={handleDeleteConversation}
-        />
+      <div className="mx-auto flex h-[calc(100dvh-var(--viewport-top))] w-full max-w-6xl flex-col overflow-hidden lg:flex-row">
+        <ConversationSidebar {...sidebarProps} />
+
+        {isSidebarOpen && (
+          <>
+            <button
+              type="button"
+              className="fixed inset-0 top-[var(--viewport-top)] z-40 bg-black/60 lg:hidden"
+              aria-label="Close conversation list"
+              onClick={closeSidebar}
+            />
+            <div
+              id="assistant-conversation-drawer"
+              className="fixed inset-y-0 left-0 top-[var(--viewport-top)] z-50 w-[min(100%,320px)] border-r border-white/10 bg-surface lg:hidden"
+            >
+              <ConversationSidebar
+                {...sidebarProps}
+                variant="drawer"
+                onAfterNavigate={closeSidebar}
+              />
+            </div>
+          </>
+        )}
+
         <section className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
+          <div className="flex shrink-0 items-center gap-2 border-b border-white/10 px-4 py-3 lg:hidden">
+            <button
+              type="button"
+              className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-white/70 transition-colors hover:bg-white/5 hover:text-accent"
+              aria-label="Open conversation list"
+              aria-expanded={isSidebarOpen}
+              aria-controls="assistant-conversation-drawer"
+              onClick={() => setIsSidebarOpen(true)}
+            >
+              <PanelLeft className="h-5 w-5" aria-hidden="true" />
+            </button>
+            <p
+              className={`${spaceGrotesk.className} min-w-0 flex-1 truncate text-sm font-medium text-white`}
+            >
+              {activeConversationTitle}
+            </p>
+            <button
+              type="button"
+              onClick={handleNewChat}
+              disabled={isNewChatDisabled}
+              title={
+                isActiveConversationEmpty
+                  ? "Already in a new chat"
+                  : "Start a new chat"
+              }
+              aria-label={
+                isActiveConversationEmpty
+                  ? "Already in a new chat"
+                  : "Start a new chat"
+              }
+              className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-accent transition-colors hover:bg-accent/10 disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              <MessageSquarePlus className="h-5 w-5" aria-hidden="true" />
+            </button>
+          </div>
           {children}
         </section>
       </div>

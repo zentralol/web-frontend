@@ -16,6 +16,9 @@ type ConversationSidebarProps = {
   onNewChat: () => void;
   onSelectConversation: (conversationId: string) => void;
   onDeleteConversation: (conversationId: string) => void;
+  className?: string;
+  onAfterNavigate?: () => void;
+  variant?: "inline" | "drawer";
 };
 
 function formatRelativeTime(isoDate: string): string {
@@ -58,6 +61,9 @@ export function ConversationSidebar({
   onNewChat,
   onSelectConversation,
   onDeleteConversation,
+  className,
+  onAfterNavigate,
+  variant = "inline",
 }: ConversationSidebarProps) {
   const highlightedConversationId = getHighlightedConversationId(
     pendingConversationId,
@@ -65,8 +71,32 @@ export function ConversationSidebar({
   );
   const isNewChatDisabled = isPending || isActiveConversationEmpty;
 
+  const handleNewChat = () => {
+    if (isNewChatDisabled) {
+      return;
+    }
+
+    onNewChat();
+    onAfterNavigate?.();
+  };
+
+  const handleSelectConversation = (conversationId: string) => {
+    if (conversationId !== activeConversationId) {
+      onSelectConversation(conversationId);
+    }
+
+    onAfterNavigate?.();
+  };
+
+  const variantClassName =
+    variant === "drawer"
+      ? "flex h-full w-full flex-col"
+      : "hidden w-full shrink-0 flex-col lg:flex lg:h-full lg:w-[300px] lg:border-r xl:w-[320px]";
+
   return (
-    <aside className="flex w-full shrink-0 flex-col border-b border-white/10 bg-surface lg:h-full lg:w-[300px] lg:border-b-0 lg:border-r xl:w-[320px]">
+    <aside
+      className={`${variantClassName} border-white/10 bg-surface ${className ?? ""}`}
+    >
       <div className="border-b border-white/10 p-4">
         <p className="text-xs font-bold uppercase tracking-[0.25em] text-accent/80">
           Assistant
@@ -78,7 +108,7 @@ export function ConversationSidebar({
         </h2>
         <button
           type="button"
-          onClick={onNewChat}
+          onClick={handleNewChat}
           disabled={isNewChatDisabled}
           title={
             isActiveConversationEmpty
@@ -97,7 +127,7 @@ export function ConversationSidebar({
         </button>
       </div>
 
-      <div className="flex max-h-48 flex-col gap-1 overflow-y-auto p-2 lg:max-h-none lg:flex-1">
+      <div className="flex flex-1 flex-col gap-1 overflow-y-auto p-2">
         {conversations.length === 0 ? (
           <p className="px-3 py-4 text-sm text-white/45">No conversations yet.</p>
         ) : (
@@ -115,7 +145,7 @@ export function ConversationSidebar({
               >
                 <button
                   type="button"
-                  onClick={() => onSelectConversation(conversation.id)}
+                  onClick={() => handleSelectConversation(conversation.id)}
                   disabled={isPending}
                   className="min-w-0 flex-1 px-3 py-3 text-left disabled:opacity-50"
                 >
