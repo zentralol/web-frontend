@@ -60,6 +60,15 @@ export function AssistantShell({
   >({});
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
 
+  // Previous-value trackers so dependent state is reconciled during render
+  // instead of in effects (avoids cascading re-renders / set-state-in-effect).
+  const [prevInitialConversations, setPrevInitialConversations] =
+    useState(initialConversations);
+  const [titleReconciledConversations, setTitleReconciledConversations] =
+    useState<ConversationSummary[]>(initialConversations);
+  const [sidebarSyncedConversationId, setSidebarSyncedConversationId] =
+    useState(activeConversationId);
+
   const refreshCleanupRef = useRef<(() => void) | null>(null);
   const conversationsRef = useRef(conversations);
 
@@ -67,9 +76,35 @@ export function AssistantShell({
     conversationsRef.current = conversations;
   }, [conversations]);
 
-  useEffect(() => {
+  // Adopt fresh server-provided conversations when the prop reference changes.
+  if (initialConversations !== prevInitialConversations) {
+    setPrevInitialConversations(initialConversations);
     setConversations(initialConversations);
-  }, [initialConversations]);
+  }
+
+  // Drop optimistic titles once the real title arrives from the server.
+  if (conversations !== titleReconciledConversations) {
+    setTitleReconciledConversations(conversations);
+    setOptimisticTitles((current) => {
+      let changed = false;
+      const next = { ...current };
+
+      for (const conversation of conversations) {
+        if (conversation.title && next[conversation.id]) {
+          delete next[conversation.id];
+          changed = true;
+        }
+      }
+
+      return changed ? next : current;
+    });
+  }
+
+  // Collapse the mobile sidebar whenever the active conversation changes.
+  if (activeConversationId !== sidebarSyncedConversationId) {
+    setSidebarSyncedConversationId(activeConversationId);
+    setIsSidebarOpen(false);
+  }
 
   const visiblePendingConversationId = resolveVisiblePendingId(
     pendingConversationId,
@@ -136,22 +171,6 @@ export function AssistantShell({
     };
   }, []);
 
-  useEffect(() => {
-    setOptimisticTitles((current) => {
-      let changed = false;
-      const next = { ...current };
-
-      for (const conversation of conversations) {
-        if (conversation.title && next[conversation.id]) {
-          delete next[conversation.id];
-          changed = true;
-        }
-      }
-
-      return changed ? next : current;
-    });
-  }, [conversations]);
-
   const sidebarConversations = useMemo(
     () =>
       conversations.map((conversation) => ({
@@ -170,10 +189,6 @@ export function AssistantShell({
   const closeSidebar = useCallback(() => {
     setIsSidebarOpen(false);
   }, []);
-
-  useEffect(() => {
-    closeSidebar();
-  }, [activeConversationId, closeSidebar]);
 
   const canDeleteConversation = (conversationId: string) =>
     evaluateCanDeleteConversation({

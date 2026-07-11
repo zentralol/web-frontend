@@ -50,15 +50,36 @@ export function useAssistantThinking(
 
   const isActiveTurn = status === "submitted" || status === "streaming";
 
-  useEffect(() => {
+  // Clear the sticky thinking effect the moment a turn ends, reconciled during
+  // render to avoid a synchronous set-state inside an effect.
+  const [prevIsActiveTurn, setPrevIsActiveTurn] = useState(isActiveTurn);
+  if (isActiveTurn !== prevIsActiveTurn) {
+    setPrevIsActiveTurn(isActiveTurn);
     if (!isActiveTurn) {
       setStickyThinking(false);
+    }
+  }
+
+  // Reset the per-turn text-tracking refs once the turn is over. No set-state
+  // here, so this effect does not trigger cascading renders.
+  useEffect(() => {
+    if (!isActiveTurn) {
       lastTextAtRef.current = null;
       prevTextLenRef.current = 0;
+    }
+  }, [isActiveTurn]);
+
+  // This effect synchronizes `stickyThinking` to the AI streaming source
+  // (status / in-flight text / active tool), which `useChat` surfaces as props
+  // rather than a subscription callback. That is a legitimate external-system
+  // sync per the rule's own guidance, so set-state-in-effect is suppressed here.
+  useEffect(() => {
+    if (!isActiveTurn) {
       return;
     }
 
     if (activeTool !== null) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- streaming state sync
       setStickyThinking(true);
     }
 
