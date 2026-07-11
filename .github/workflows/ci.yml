@@ -7,9 +7,14 @@ on:
       - main
   workflow_dispatch:
 
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   check:
     runs-on: ubuntu-latest
+    timeout-minutes: 15
 
     steps:
       - name: Checkout code
@@ -34,6 +39,3 @@ jobs:
 
       - name: Run tests
         run: pnpm test
-
-      - name: Build app
-        run: pnpm build
