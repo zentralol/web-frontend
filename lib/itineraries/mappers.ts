@@ -9,8 +9,6 @@ export function rowToSavedItinerary(row: SavedItineraryRow): SavedItinerary {
     items: row.items ?? [],
     description: row.description ?? null,
     note: row.note ?? null,
-    startDate: row.start_date ?? null,
-    endDate: row.end_date ?? null,
     conversationId: row.conversation_id,
     createdAt: row.created_at,
   };

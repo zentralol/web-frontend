@@ -16,8 +16,6 @@ export type SavedItineraryRow = {
   items: PlaceCardItem[];
   description: string | null;
   note: string | null;
-  start_date: string | null;
-  end_date: string | null;
   created_at: string;
   deleted_at: string | null;
 };
@@ -30,8 +28,6 @@ export type SavedItinerary = {
   items: PlaceCardItem[];
   description: string | null;
   note: string | null;
-  startDate: string | null;
-  endDate: string | null;
   conversationId: string | null;
   createdAt: string;
 };
@@ -42,7 +38,5 @@ export type SaveItineraryInput = {
   items: PlaceCardItem[];
   description?: string;
   title?: string;
-  startDate?: string;
-  endDate?: string;
   conversationId?: string | null;
 };

@@ -370,39 +370,6 @@ describe("recommendation cards", () => {
     });
   });
 
-  it("parses start and end dates on recommendation events", () => {
-    const result = buildRecommendationCards({
-      type: "recommendations",
-      data: {
-        source: "itinerary",
-        start_date: "2026-07-10",
-        end_date: "2026-07-12",
-        items: [
-          {
-            candidate_id: "itinerary:essex-market",
-            rank: 1,
-            reason: "",
-            name: "Essex Market",
-            lat: 40.7185,
-            lng: -73.9877,
-            subtitle: "",
-            detail: "",
-          },
-        ],
-      },
-    });
-
-    expect(result).toEqual({
-      source: "itinerary",
-      startDate: "2026-07-10",
-      endDate: "2026-07-12",
-      items: [
-        expect.objectContaining({
-          candidateId: "itinerary:essex-market",
-        }),
-      ],
-    });
-  });
 
   it("emits cards in the structured array order", () => {
     const chunks = translateZentraSse(

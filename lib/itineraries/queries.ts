@@ -39,8 +39,6 @@ export async function createSavedItinerary(
       source: payload.source,
       items: payload.items,
       description: payload.description ?? null,
-      start_date: payload.startDate ?? null,
-      end_date: payload.endDate ?? null,
     })
     .select("*")
     .single();
