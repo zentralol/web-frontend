@@ -49,6 +49,26 @@ function toRouteLocation(
   };
 }
 
+function fitRouteBounds(
+  map: google.maps.Map,
+  geometryLib: google.maps.GeometryLibrary,
+  origin: RouteLocation,
+  destination: RouteLocation,
+  encodedPolyline: string,
+) {
+  const bounds = new google.maps.LatLngBounds();
+  bounds.extend({ lat: origin.lat, lng: origin.lng });
+  bounds.extend({ lat: destination.lat, lng: destination.lng });
+
+  if (encodedPolyline) {
+    geometryLib.encoding
+      .decodePath(encodedPolyline)
+      .forEach((point) => bounds.extend(point));
+  }
+
+  map.fitBounds(bounds, 64);
+}
+
 function FitBounds({
   encodedPolyline,
   origin,
@@ -63,24 +83,23 @@ function FitBounds({
 
   useEffect(() => {
     if (!map || !geometryLib) return;
-
-    const bounds = new google.maps.LatLngBounds();
-    bounds.extend({ lat: origin.lat, lng: origin.lng });
-    bounds.extend({ lat: destination.lat, lng: destination.lng });
-
-    if (encodedPolyline) {
-      const path = geometryLib.encoding.decodePath(encodedPolyline);
-      path.forEach((point) => bounds.extend(point));
-    }
-
-    map.fitBounds(bounds, 64);
+    fitRouteBounds(map, geometryLib, origin, destination, encodedPolyline);
   }, [map, geometryLib, encodedPolyline, origin, destination]);
 
   return null;
 }
 
-function MapZoomControls() {
+function MapZoomControls({
+  origin,
+  destination,
+  encodedPolyline,
+}: {
+  origin: RouteLocation;
+  destination: RouteLocation;
+  encodedPolyline: string;
+}) {
   const map = useMap();
+  const geometryLib = useMapsLibrary("geometry");
 
   if (!map) return null;
 
@@ -107,7 +126,8 @@ function MapZoomControls() {
           type="button"
           aria-label="Recenter route"
           onClick={() => {
-            map.panTo(map.getCenter()!);
+            if (!geometryLib) return;
+            fitRouteBounds(map, geometryLib, origin, destination, encodedPolyline);
           }}
           className="flex h-9 w-9 items-center justify-center border-t border-white/10 text-white/70 transition-colors hover:bg-white/5 hover:text-accent"
         >
@@ -261,7 +281,11 @@ function MapContent({
         letter="B"
         color={DESTINATION_MARKER_COLOR}
       />
-      <MapZoomControls />
+      <MapZoomControls
+        origin={origin}
+        destination={destination}
+        encodedPolyline={encodedPolyline}
+      />
     </Map>
   );
 }
