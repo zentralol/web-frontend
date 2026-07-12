@@ -12,6 +12,13 @@ import {
 export const TOP_LANDMARKS_LIMIT = 5;
 export const BATCH_CHUNK_SIZE = 100;
 
+export type LandmarksSortOrder = "busiest_first" | "quietest_first";
+
+export type RankTopBusyAttractionsOptions = {
+  limit?: number;
+  sortOrder?: LandmarksSortOrder;
+};
+
 export type TopLandmark = {
   attraction: Attraction;
   busynessScore: number;
@@ -48,13 +55,14 @@ export function chunkItems<T>(items: T[], chunkSize: number): T[][] {
 export function rankTopBusyAttractions(
   attractions: Attraction[],
   predictions: BatchPrediction[],
-  limit = TOP_LANDMARKS_LIMIT,
+  options: RankTopBusyAttractionsOptions = {},
 ): TopLandmark[] {
+  const { limit = TOP_LANDMARKS_LIMIT, sortOrder = "busiest_first" } = options;
   const attractionById = new Map(
     attractions.map((attraction) => [String(attraction.id), attraction]),
   );
 
-  return predictions
+  const ranked = predictions
     .filter(
       (prediction) =>
         prediction.clientId != null &&
@@ -62,17 +70,36 @@ export function rankTopBusyAttractions(
         prediction.busynessLevel != null &&
         attractionById.has(String(prediction.clientId)),
     )
-    .sort(
-      (left, right) =>
-        (right.busynessScore as number) - (left.busynessScore as number),
-    )
-    .slice(0, limit)
+    .sort((left, right) => {
+      const diff =
+        (right.busynessScore as number) - (left.busynessScore as number);
+      return sortOrder === "busiest_first" ? diff : -diff;
+    })
     .map((prediction, index) => ({
       attraction: attractionById.get(String(prediction.clientId)) as Attraction,
       busynessScore: prediction.busynessScore as number,
       busynessLevel: prediction.busynessLevel as string,
       rank: index + 1,
     }));
+
+  return limit === undefined ? ranked : ranked.slice(0, limit);
+}
+
+export function applyLandmarksSortOrder(
+  landmarks: TopLandmark[],
+  sortOrder: LandmarksSortOrder,
+  limit = TOP_LANDMARKS_LIMIT,
+): TopLandmark[] {
+  const sorted = [...landmarks].sort((left, right) =>
+    sortOrder === "busiest_first"
+      ? right.busynessScore - left.busynessScore
+      : left.busynessScore - right.busynessScore,
+  );
+
+  return sorted.slice(0, limit).map((item, index) => ({
+    ...item,
+    rank: index + 1,
+  }));
 }
 
 async function fetchBatchChunk(
@@ -141,7 +168,10 @@ export async function fetchTopLandmarks(
     }
 
     return {
-      landmarks: rankTopBusyAttractions(scenicAttractions, allPredictions),
+      landmarks: rankTopBusyAttractions(scenicAttractions, allPredictions, {
+        limit: undefined,
+        sortOrder: "busiest_first",
+      }),
       targetTime,
     };
   } catch (error) {

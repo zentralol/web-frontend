@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { Attraction } from "@/lib/attractions/types";
 import {
+  applyLandmarksSortOrder,
   BATCH_CHUNK_SIZE,
   chunkItems,
   fetchTopLandmarks,
@@ -83,12 +84,27 @@ describe("rankTopBusyAttractions", () => {
         { clientId: "2", busynessScore: 90, busynessLevel: "very_busy" },
         { clientId: "3", busynessScore: 65, busynessLevel: "busy" },
       ],
-      TOP_LANDMARKS_LIMIT,
+      { limit: TOP_LANDMARKS_LIMIT, sortOrder: "busiest_first" },
     );
 
     expect(ranked.map((item) => item.attraction.id)).toEqual([2, 3, 1]);
     expect(ranked[0].rank).toBe(1);
     expect(ranked[0].busynessScore).toBe(90);
+  });
+
+  it("sorts by busyness score ascending when quietest_first", () => {
+    const ranked = rankTopBusyAttractions(
+      attractions,
+      [
+        { clientId: "1", busynessScore: 40, busynessLevel: "moderate" },
+        { clientId: "2", busynessScore: 90, busynessLevel: "very_busy" },
+        { clientId: "3", busynessScore: 65, busynessLevel: "busy" },
+      ],
+      { limit: TOP_LANDMARKS_LIMIT, sortOrder: "quietest_first" },
+    );
+
+    expect(ranked.map((item) => item.attraction.id)).toEqual([1, 3, 2]);
+    expect(ranked[0].busynessScore).toBe(40);
   });
 
   it("ignores predictions without matching attractions", () => {
@@ -99,6 +115,32 @@ describe("rankTopBusyAttractions", () => {
 
     expect(ranked).toHaveLength(1);
     expect(ranked[0].attraction.id).toBe(2);
+  });
+});
+
+describe("applyLandmarksSortOrder", () => {
+  const landmarks = rankTopBusyAttractions(
+    attractions,
+    [
+      { clientId: "1", busynessScore: 40, busynessLevel: "moderate" },
+      { clientId: "2", busynessScore: 90, busynessLevel: "very_busy" },
+      { clientId: "3", busynessScore: 65, busynessLevel: "busy" },
+    ],
+    { limit: undefined },
+  );
+
+  it("returns the quietest landmarks first", () => {
+    const quietest = applyLandmarksSortOrder(landmarks, "quietest_first", 2);
+
+    expect(quietest.map((item) => item.attraction.id)).toEqual([1, 3]);
+    expect(quietest[0].rank).toBe(1);
+    expect(quietest[1].rank).toBe(2);
+  });
+
+  it("returns the busiest landmarks first", () => {
+    const busiest = applyLandmarksSortOrder(landmarks, "busiest_first", 2);
+
+    expect(busiest.map((item) => item.attraction.id)).toEqual([2, 3]);
   });
 });
 
@@ -122,6 +164,7 @@ describe("fetchTopLandmarks", () => {
 
     expect(result.landmarks).toHaveLength(1);
     expect(result.landmarks[0]?.attraction.id).toBe(1);
+    expect(result.landmarks[0]?.busynessScore).toBe(40);
   });
 
   it("returns empty results when no scenic attractions are present", async () => {
