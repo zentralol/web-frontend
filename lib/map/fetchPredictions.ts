@@ -104,6 +104,31 @@ function buildApiUrl(baseUrl: string, path: string): string {
 const NAIVE_DATE_TIME_PATTERN =
   /^\d{4}-\d{2}-\d{2}T(\d{2}):(\d{2})/;
 
+export const MAP_MAX_FUTURE_HOURS = 8;
+
+function addHours(date: Date, hours: number): Date {
+  return new Date(date.getTime() + hours * 60 * 60 * 1000);
+}
+
+export type FutureHourOption = {
+  hoursAhead: number;
+  targetTime: string;
+  label: string;
+};
+
+export function buildFutureHourOptions(now: Date = new Date()): FutureHourOption[] {
+  return Array.from({ length: MAP_MAX_FUTURE_HOURS }, (_, index) => {
+    const hoursAhead = index + 1;
+    const targetTime = formatInNewYork(addHours(now, hoursAhead));
+    const timeLabel = toForecastTimeLabel(targetTime);
+    return {
+      hoursAhead,
+      targetTime,
+      label: `In ${hoursAhead} hour${hoursAhead === 1 ? "" : "s"} · ${timeLabel}`,
+    };
+  });
+}
+
 export function toForecastTimeLabel(isoLikeValue: string): string {
   // API convention: date-time digits are Manhattan wall-clock time; a trailing
   // "Z" is a serialization artifact. Parsing with `new Date()` would reinterpret
@@ -120,6 +145,59 @@ export function toForecastTimeLabel(isoLikeValue: string): string {
   const suffix = hour >= 12 ? "PM" : "AM";
   const hour12 = hour % 12 === 0 ? 12 : hour % 12;
   return `${hour12}:${minute} ${suffix}`;
+}
+
+export async function fetchBusynessAtTime(
+  lat: number,
+  lng: number,
+  hoursAhead: number,
+  backendFetch: FetchLike,
+): Promise<BusynessData> {
+  try {
+    const baseUrl = normalizeBaseUrl(backendBaseUrl);
+    const targetTime = formatInNewYork(addHours(new Date(), hoursAhead));
+
+    const response = await backendFetch(buildApiUrl(baseUrl, "/predictions"), {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        lat,
+        lng,
+        targetTime,
+        durationMinutes: 60,
+      }),
+    });
+
+    const payload = (await response.json()) as
+      | CurrentPredictionPayload
+      | ApiErrorPayload;
+
+    const prediction = (payload as CurrentPredictionPayload).data?.prediction;
+    const hasPrediction =
+      response.ok &&
+      prediction?.busynessScore != null &&
+      prediction.busynessLevel != null;
+
+    if (!hasPrediction) {
+      return {
+        busynessError: parseApiError(
+          payload,
+          "Could not load busyness prediction.",
+        ),
+      };
+    }
+
+    return {
+      busyness: {
+        score: prediction.busynessScore as number,
+        level: prediction.busynessLevel as string,
+        period: prediction.period,
+        confidence: prediction.confidence,
+      },
+    };
+  } catch {
+    return { busynessError: "Could not load busyness prediction." };
+  }
 }
 
 export async function fetchBusynessData(
