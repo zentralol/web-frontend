@@ -1,4 +1,5 @@
 import type { FetchLike } from "@/lib/backend/authenticatedFetch";
+import { isScenicAttraction } from "@/lib/attractions/categoryGroups";
 import type { Attraction } from "@/lib/attractions/types";
 import { formatInNewYork } from "@/lib/time/manhattanTime";
 import {
@@ -115,14 +116,18 @@ export async function fetchTopLandmarks(
   attractions: Attraction[],
   backendFetch: FetchLike,
 ): Promise<TopLandmarksResult> {
-  if (attractions.length === 0) {
+  const scenicAttractions = attractions.filter((attraction) =>
+    isScenicAttraction(attraction.category),
+  );
+
+  if (scenicAttractions.length === 0) {
     return { landmarks: [], targetTime: formatInNewYork(new Date()) };
   }
 
   try {
     const baseUrl = normalizeBaseUrl(backendBaseUrl);
     const targetTime = formatInNewYork(new Date());
-    const chunks = chunkItems(attractions, BATCH_CHUNK_SIZE);
+    const chunks = chunkItems(scenicAttractions, BATCH_CHUNK_SIZE);
     const allPredictions: BatchPrediction[] = [];
 
     for (const chunk of chunks) {
@@ -136,7 +141,7 @@ export async function fetchTopLandmarks(
     }
 
     return {
-      landmarks: rankTopBusyAttractions(attractions, allPredictions),
+      landmarks: rankTopBusyAttractions(scenicAttractions, allPredictions),
       targetTime,
     };
   } catch (error) {

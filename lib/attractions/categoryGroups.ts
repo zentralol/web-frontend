@@ -115,3 +115,15 @@ export function extractCategoryGroups(rawCategories: string[]): CategoryGroup[] 
 
   return CATEGORY_GROUP_ORDER.filter((group) => present.has(group));
 }
+
+/** Browse groups eligible for Top landmarks (scenic / tourist attractions). */
+export const SCENIC_ATTRACTION_GROUPS = new Set<CategoryGroup>([
+  "Landmarks & History",
+  "Museums & Culture",
+  "Parks & Outdoors",
+  "Entertainment",
+]);
+
+export function isScenicAttraction(category: string): boolean {
+  return SCENIC_ATTRACTION_GROUPS.has(resolveCategoryGroup(category));
+}

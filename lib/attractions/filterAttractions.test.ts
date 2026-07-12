@@ -1,6 +1,7 @@
 import { describe, expect, test } from "vitest";
 import {
   extractCategoryGroups,
+  isScenicAttraction,
   resolveCategoryGroup,
 } from "./categoryGroups";
 import {
@@ -46,6 +47,23 @@ describe("resolveCategoryGroup", () => {
     expect(resolveCategoryGroup("Deli/Bakery")).toBe("Food & Drink");
     expect(resolveCategoryGroup("Subway Station")).toBe("Transit");
     expect(resolveCategoryGroup("Shopping District")).toBe("Shopping");
+  });
+});
+
+describe("isScenicAttraction", () => {
+  test("includes landmarks, museums, parks, and entertainment", () => {
+    expect(isScenicAttraction("Landmark/Bridge")).toBe(true);
+    expect(isScenicAttraction("Museum")).toBe(true);
+    expect(isScenicAttraction("Park")).toBe(true);
+    expect(isScenicAttraction("Theater")).toBe(true);
+  });
+
+  test("excludes transit, food, shopping, and neighborhoods", () => {
+    expect(isScenicAttraction("Subway Station")).toBe(false);
+    expect(isScenicAttraction("Deli/Bakery")).toBe(false);
+    expect(isScenicAttraction("Shopping District")).toBe(false);
+    expect(isScenicAttraction("Neighborhood")).toBe(false);
+    expect(isScenicAttraction("")).toBe(false);
   });
 });
 

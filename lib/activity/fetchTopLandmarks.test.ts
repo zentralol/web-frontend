@@ -3,19 +3,24 @@ import type { Attraction } from "@/lib/attractions/types";
 import {
   BATCH_CHUNK_SIZE,
   chunkItems,
+  fetchTopLandmarks,
   rankTopBusyAttractions,
   TOP_LANDMARKS_LIMIT,
 } from "./fetchTopLandmarks";
+
+const baseAttraction = {
+  neighborhood: "Midtown",
+  description: "",
+  lat: 40.75,
+  lng: -73.98,
+};
 
 const attractions: Attraction[] = [
   {
     id: 1,
     name: "Place A",
     category: "Landmark",
-    neighborhood: "Midtown",
-    description: "",
-    lat: 40.75,
-    lng: -73.98,
+    ...baseAttraction,
   },
   {
     id: 2,
@@ -34,6 +39,27 @@ const attractions: Attraction[] = [
     description: "",
     lat: 40.77,
     lng: -73.97,
+  },
+];
+
+const mixedAttractions: Attraction[] = [
+  {
+    id: 1,
+    name: "Empire State",
+    category: "Landmark",
+    ...baseAttraction,
+  },
+  {
+    id: 2,
+    name: "Grand Central",
+    category: "Subway Station",
+    ...baseAttraction,
+  },
+  {
+    id: 3,
+    name: "Joe's Pizza",
+    category: "Restaurant",
+    ...baseAttraction,
   },
 ];
 
@@ -73,5 +99,54 @@ describe("rankTopBusyAttractions", () => {
 
     expect(ranked).toHaveLength(1);
     expect(ranked[0].attraction.id).toBe(2);
+  });
+});
+
+describe("fetchTopLandmarks", () => {
+  it("only ranks scenic attractions", async () => {
+    const backendFetch = async () =>
+      ({
+        ok: true,
+        json: async () => ({
+          data: {
+            predictions: [
+              { clientId: "1", busynessScore: 40, busynessLevel: "moderate" },
+              { clientId: "2", busynessScore: 99, busynessLevel: "very_busy" },
+              { clientId: "3", busynessScore: 80, busynessLevel: "busy" },
+            ],
+          },
+        }),
+      }) as Response;
+
+    const result = await fetchTopLandmarks(mixedAttractions, backendFetch);
+
+    expect(result.landmarks).toHaveLength(1);
+    expect(result.landmarks[0]?.attraction.id).toBe(1);
+  });
+
+  it("returns empty results when no scenic attractions are present", async () => {
+    const nonScenic: Attraction[] = [
+      {
+        id: 10,
+        name: "Penn Station",
+        category: "Train Station",
+        ...baseAttraction,
+      },
+      {
+        id: 11,
+        name: "Katz's Deli",
+        category: "Deli/Bakery",
+        ...baseAttraction,
+      },
+    ];
+
+    const backendFetch = async () => {
+      throw new Error("API should not be called");
+    };
+
+    const result = await fetchTopLandmarks(nonScenic, backendFetch);
+
+    expect(result.landmarks).toEqual([]);
+    expect(result.error).toBeUndefined();
   });
 });

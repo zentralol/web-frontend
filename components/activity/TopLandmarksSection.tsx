@@ -83,7 +83,7 @@ export function TopLandmarksSection({
 
       {state === "ready" && result.landmarks.length === 0 && (
         <p className="mt-6 text-sm text-white/50">
-          No busyness predictions available for attractions.
+          No busyness predictions available for landmarks right now.
         </p>
       )}
 
