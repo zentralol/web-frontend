@@ -104,34 +104,37 @@ export function CrowdForecastSection({
 
             {forecast.map((point, index) => {
               const isSelected = index === selectedIndex;
-              const barHeight = `${Math.max(point.score, 4)}%`;
+              const barHeight = `${Math.min(Math.max(point.score, 4), 100)}%`;
 
               return (
                 <button
                   key={`${point.rawTimestamp}-${point.score}`}
                   type="button"
                   onClick={() => setSelectedIndex(index)}
-                  className="group relative flex flex-1 flex-col items-center"
+                  className="group relative flex h-full min-w-0 flex-1 flex-col items-center"
                 >
+                  <div className="flex min-h-0 w-full flex-1 items-end justify-center">
+                    <div
+                      style={{ height: barHeight }}
+                      className={`relative w-full max-w-10 rounded-t-sm transition-all duration-300 ${
+                        isSelected
+                          ? "bg-accent/80"
+                          : `${busynessScoreBarClass(point.score)} hover:bg-accent/50`
+                      }`}
+                    >
+                      <span
+                        className={`pointer-events-none absolute -top-4 left-1/2 -translate-x-1/2 font-mono text-[9px] transition-opacity ${
+                          isSelected
+                            ? "font-bold text-accent opacity-100"
+                            : "text-white/50 opacity-0 group-hover:opacity-100"
+                        }`}
+                      >
+                        {point.score}
+                      </span>
+                    </div>
+                  </div>
                   <span
-                    className={`absolute -top-1 font-mono text-[9px] transition-opacity ${
-                      isSelected
-                        ? "font-bold text-accent opacity-100"
-                        : "text-white/50 opacity-0 group-hover:opacity-100"
-                    }`}
-                  >
-                    {point.score}
-                  </span>
-                  <div
-                    style={{ height: barHeight }}
-                    className={`w-full max-w-10 rounded-t-sm transition-all duration-300 ${
-                      isSelected
-                        ? "bg-accent/80"
-                        : `${busynessScoreBarClass(point.score)} hover:bg-accent/50`
-                    }`}
-                  />
-                  <span
-                    className={`mt-2 text-[9px] font-mono transition-colors ${
+                    className={`mt-2 shrink-0 text-[9px] font-mono transition-colors ${
                       isSelected ? "text-accent" : "text-white/40"
                     }`}
                   >
