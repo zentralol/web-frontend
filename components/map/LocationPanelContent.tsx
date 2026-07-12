@@ -1,7 +1,15 @@
+"use client";
+
 import Link from "next/link";
-import { ArrowLeft, Navigation } from "lucide-react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { ArrowLeft, Loader2, Navigation } from "lucide-react";
 import { spaceGrotesk } from "@/app/ui/fonts";
 import { buildRoutesHref } from "@/lib/attractions/buildRoutesHref";
+import { useAuthenticatedBackendFetch } from "@/lib/backend/useAuthenticatedBackendFetch";
+import {
+  buildFutureHourOptions,
+  fetchBusynessAtTime,
+} from "@/lib/map/fetchPredictions";
 import type { LocationSelectionState } from "@/lib/map/types";
 
 function formatCoordinate(value: number) {
@@ -43,6 +51,11 @@ function LocationPanelSkeleton() {
   );
 }
 
+type BusynessDisplay = {
+  score: number;
+  level: string;
+};
+
 export function LocationPanelContent({
   selection,
   onBack,
@@ -50,6 +63,90 @@ export function LocationPanelContent({
   selection: LocationSelectionState;
   onBack?: () => void;
 }) {
+  const backendFetch = useAuthenticatedBackendFetch();
+  const timeOptions = useMemo(() => buildFutureHourOptions(), []);
+  const [selectedHoursAhead, setSelectedHoursAhead] = useState(1);
+  const [busyness, setBusyness] = useState<BusynessDisplay | null>(null);
+  const [busynessError, setBusynessError] = useState<string | null>(null);
+  const [isBusynessLoading, setIsBusynessLoading] = useState(false);
+  const locationKeyRef = useRef<string | null>(null);
+  const pendingLocationResetRef = useRef(false);
+
+  const loadBusyness = useCallback(
+    async (
+      lat: number,
+      lng: number,
+      hoursAhead: number,
+      initialBusyness?: BusynessDisplay,
+    ) => {
+      if (initialBusyness) {
+        setBusyness(initialBusyness);
+        setBusynessError(null);
+        setIsBusynessLoading(false);
+        return;
+      }
+
+      setIsBusynessLoading(true);
+      setBusynessError(null);
+
+      const result = await fetchBusynessAtTime(
+        lat,
+        lng,
+        hoursAhead,
+        backendFetch,
+      );
+
+      if (result.busyness) {
+        setBusyness({
+          score: result.busyness.score,
+          level: result.busyness.level,
+        });
+        setBusynessError(null);
+      } else {
+        setBusyness(null);
+        setBusynessError(
+          result.busynessError ?? "Busyness data unavailable.",
+        );
+      }
+
+      setIsBusynessLoading(false);
+    },
+    [backendFetch],
+  );
+
+  useEffect(() => {
+    if (selection.status !== "ready") {
+      return;
+    }
+
+    const { lat, lng, busyness: initialBusyness } = selection.location;
+    const locationKey = `${lat},${lng}`;
+    const isNewLocation = locationKeyRef.current !== locationKey;
+
+    if (isNewLocation) {
+      locationKeyRef.current = locationKey;
+      pendingLocationResetRef.current = true;
+      setSelectedHoursAhead(1);
+      void loadBusyness(lat, lng, 1, initialBusyness);
+      return;
+    }
+
+    if (pendingLocationResetRef.current && selectedHoursAhead === 1) {
+      pendingLocationResetRef.current = false;
+      return;
+    }
+
+    void loadBusyness(lat, lng, selectedHoursAhead);
+  }, [selection, selectedHoursAhead, loadBusyness]);
+
+  const handleTimeChange = (event: React.ChangeEvent<HTMLSelectElement>) => {
+    const hoursAhead = Number(event.target.value);
+    if (!Number.isFinite(hoursAhead)) {
+      return;
+    }
+    setSelectedHoursAhead(hoursAhead);
+  };
+
   return (
     <>
       {onBack && selection.status !== "idle" && (
@@ -130,31 +227,38 @@ export function LocationPanelContent({
             <p className="text-xs font-bold uppercase tracking-[0.25em] text-accent/80">
               Busyness
             </p>
-            {selection.location.busyness ? (
-              <div className="mt-2 space-y-2 text-sm text-white/55">
-                <p className="text-white/80">
-                  {formatBusynessLevel(selection.location.busyness.level)} ·{" "}
-                  {selection.location.busyness.score}
-                </p>
-                {selection.location.forecast &&
-                  selection.location.forecast.length > 0 && (
-                    <div>
-                      <p className="text-xs uppercase tracking-[0.15em] text-accent/70">
-                        Next 6 hours
-                      </p>
-                      <ul className="mt-2 space-y-1 text-white/55">
-                        {selection.location.forecast.map((item) => (
-                          <li key={`${item.timestamp}-${item.level}-${item.score}`}>
-                            {item.score} ({formatBusynessLevel(item.level)})
-                          </li>
-                        ))}
-                      </ul>
-                    </div>
-                  )}
+            <label className="mt-2 block">
+              <span className="sr-only">Forecast time</span>
+              <select
+                value={selectedHoursAhead}
+                onChange={handleTimeChange}
+                disabled={isBusynessLoading}
+                className="w-full rounded-xl border border-white/10 bg-white/[0.03] px-3 py-2.5 text-sm text-white outline-none transition-colors focus:border-accent/40 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                {timeOptions.map((option) => (
+                  <option
+                    key={option.hoursAhead}
+                    value={option.hoursAhead}
+                    className="bg-surface text-white"
+                  >
+                    {option.label}
+                  </option>
+                ))}
+              </select>
+            </label>
+
+            {isBusynessLoading ? (
+              <div className="mt-3 flex items-center gap-2 text-sm text-white/50">
+                <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
+                Loading prediction…
               </div>
+            ) : busyness ? (
+              <p className="mt-3 text-sm text-white/80">
+                {formatBusynessLevel(busyness.level)} · {busyness.score}
+              </p>
             ) : (
-              <p className="mt-2 text-sm text-white/55">
-                {selection.location.busynessError ?? "Busyness data unavailable."}
+              <p className="mt-3 text-sm text-white/55">
+                {busynessError ?? "Busyness data unavailable."}
               </p>
             )}
           </div>
