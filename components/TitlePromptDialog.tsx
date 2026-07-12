@@ -12,13 +12,19 @@ interface TitlePromptDialogProps {
   isLoading?: boolean;
 }
 
-export function TitlePromptDialog({
-  open,
+interface TitlePromptDialogPanelProps {
+  defaultValue: string;
+  onConfirm: (title: string) => void;
+  onCancel: () => void;
+  isLoading: boolean;
+}
+
+function TitlePromptDialogPanel({
   defaultValue,
   onConfirm,
   onCancel,
-  isLoading = false,
-}: TitlePromptDialogProps) {
+  isLoading,
+}: TitlePromptDialogPanelProps) {
   const titleId = useId();
   const descriptionId = useId();
   const inputId = useId();
@@ -26,12 +32,7 @@ export function TitlePromptDialog({
   const [value, setValue] = useState(defaultValue);
 
   useEffect(() => {
-    if (!open) return;
-    setValue(defaultValue);
-  }, [open, defaultValue]);
-
-  useEffect(() => {
-    if (!open || isLoading) return;
+    if (isLoading) return;
 
     const handleKeyDown = (event: KeyboardEvent) => {
       if (event.key === "Escape") {
@@ -41,10 +42,10 @@ export function TitlePromptDialog({
 
     document.addEventListener("keydown", handleKeyDown);
     return () => document.removeEventListener("keydown", handleKeyDown);
-  }, [open, isLoading, onCancel]);
+  }, [isLoading, onCancel]);
 
   useEffect(() => {
-    if (!open || isLoading) return;
+    if (isLoading) return;
 
     const timer = window.setTimeout(() => {
       const input = inputRef.current;
@@ -54,7 +55,7 @@ export function TitlePromptDialog({
     }, 0);
 
     return () => window.clearTimeout(timer);
-  }, [open, isLoading, defaultValue]);
+  }, [isLoading]);
 
   const trimmedValue = value.trim();
   const canConfirm = trimmedValue.length > 0 && !isLoading;
@@ -63,10 +64,6 @@ export function TitlePromptDialog({
     if (!canConfirm) return;
     onConfirm(trimmedValue);
   };
-
-  if (!open) {
-    return null;
-  }
 
   return (
     <div
@@ -128,5 +125,26 @@ export function TitlePromptDialog({
         </div>
       </div>
     </div>
+  );
+}
+
+export function TitlePromptDialog({
+  open,
+  defaultValue,
+  onConfirm,
+  onCancel,
+  isLoading = false,
+}: TitlePromptDialogProps) {
+  if (!open) {
+    return null;
+  }
+
+  return (
+    <TitlePromptDialogPanel
+      defaultValue={defaultValue}
+      onConfirm={onConfirm}
+      onCancel={onCancel}
+      isLoading={isLoading}
+    />
   );
 }
