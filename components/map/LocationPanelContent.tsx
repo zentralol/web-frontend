@@ -51,7 +51,7 @@ function LocationPanelSkeleton() {
   );
 }
 
-type BusynessDisplay = {
+type FutureBusynessDisplay = {
   score: number;
   level: string;
 };
@@ -66,28 +66,19 @@ export function LocationPanelContent({
   const backendFetch = useAuthenticatedBackendFetch();
   const timeOptions = useMemo(() => buildFutureHourOptions(), []);
   const [selectedHoursAhead, setSelectedHoursAhead] = useState(1);
-  const [busyness, setBusyness] = useState<BusynessDisplay | null>(null);
-  const [busynessError, setBusynessError] = useState<string | null>(null);
-  const [isBusynessLoading, setIsBusynessLoading] = useState(false);
+  const [futureBusyness, setFutureBusyness] =
+    useState<FutureBusynessDisplay | null>(null);
+  const [futureBusynessError, setFutureBusynessError] = useState<string | null>(
+    null,
+  );
+  const [isFutureLoading, setIsFutureLoading] = useState(false);
   const locationKeyRef = useRef<string | null>(null);
   const pendingLocationResetRef = useRef(false);
 
-  const loadBusyness = useCallback(
-    async (
-      lat: number,
-      lng: number,
-      hoursAhead: number,
-      initialBusyness?: BusynessDisplay,
-    ) => {
-      if (initialBusyness) {
-        setBusyness(initialBusyness);
-        setBusynessError(null);
-        setIsBusynessLoading(false);
-        return;
-      }
-
-      setIsBusynessLoading(true);
-      setBusynessError(null);
+  const loadFutureBusyness = useCallback(
+    async (lat: number, lng: number, hoursAhead: number) => {
+      setIsFutureLoading(true);
+      setFutureBusynessError(null);
 
       const result = await fetchBusynessAtTime(
         lat,
@@ -97,19 +88,19 @@ export function LocationPanelContent({
       );
 
       if (result.busyness) {
-        setBusyness({
+        setFutureBusyness({
           score: result.busyness.score,
           level: result.busyness.level,
         });
-        setBusynessError(null);
+        setFutureBusynessError(null);
       } else {
-        setBusyness(null);
-        setBusynessError(
-          result.busynessError ?? "Busyness data unavailable.",
+        setFutureBusyness(null);
+        setFutureBusynessError(
+          result.busynessError ?? "Future busyness data unavailable.",
         );
       }
 
-      setIsBusynessLoading(false);
+      setIsFutureLoading(false);
     },
     [backendFetch],
   );
@@ -119,7 +110,7 @@ export function LocationPanelContent({
       return;
     }
 
-    const { lat, lng, busyness: initialBusyness } = selection.location;
+    const { lat, lng } = selection.location;
     const locationKey = `${lat},${lng}`;
     const isNewLocation = locationKeyRef.current !== locationKey;
 
@@ -127,7 +118,7 @@ export function LocationPanelContent({
       locationKeyRef.current = locationKey;
       pendingLocationResetRef.current = true;
       setSelectedHoursAhead(1);
-      void loadBusyness(lat, lng, 1, initialBusyness);
+      void loadFutureBusyness(lat, lng, 1);
       return;
     }
 
@@ -136,8 +127,8 @@ export function LocationPanelContent({
       return;
     }
 
-    void loadBusyness(lat, lng, selectedHoursAhead);
-  }, [selection, selectedHoursAhead, loadBusyness]);
+    void loadFutureBusyness(lat, lng, selectedHoursAhead);
+  }, [selection, selectedHoursAhead, loadFutureBusyness]);
 
   const handleTimeChange = (event: React.ChangeEvent<HTMLSelectElement>) => {
     const hoursAhead = Number(event.target.value);
@@ -227,12 +218,45 @@ export function LocationPanelContent({
             <p className="text-xs font-bold uppercase tracking-[0.25em] text-accent/80">
               Busyness
             </p>
+            {selection.location.busyness ? (
+              <div className="mt-2 space-y-2 text-sm text-white/55">
+                <p className="text-white/80">
+                  {formatBusynessLevel(selection.location.busyness.level)} ·{" "}
+                  {selection.location.busyness.score}
+                </p>
+                {selection.location.forecast &&
+                  selection.location.forecast.length > 0 && (
+                    <div>
+                      <p className="text-xs uppercase tracking-[0.15em] text-accent/70">
+                        Next 6 hours
+                      </p>
+                      <ul className="mt-2 space-y-1 text-white/55">
+                        {selection.location.forecast.map((item) => (
+                          <li key={`${item.timestamp}-${item.level}-${item.score}`}>
+                            {item.score} ({formatBusynessLevel(item.level)})
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+              </div>
+            ) : (
+              <p className="mt-2 text-sm text-white/55">
+                {selection.location.busynessError ?? "Busyness data unavailable."}
+              </p>
+            )}
+          </div>
+
+          <div>
+            <p className="text-xs font-bold uppercase tracking-[0.25em] text-accent/80">
+              Future busyness
+            </p>
             <label className="mt-2 block">
               <span className="sr-only">Forecast time</span>
               <select
                 value={selectedHoursAhead}
                 onChange={handleTimeChange}
-                disabled={isBusynessLoading}
+                disabled={isFutureLoading}
                 className="w-full rounded-xl border border-white/10 bg-white/[0.03] px-3 py-2.5 text-sm text-white outline-none transition-colors focus:border-accent/40 disabled:cursor-not-allowed disabled:opacity-60"
               >
                 {timeOptions.map((option) => (
@@ -247,18 +271,19 @@ export function LocationPanelContent({
               </select>
             </label>
 
-            {isBusynessLoading ? (
+            {isFutureLoading ? (
               <div className="mt-3 flex items-center gap-2 text-sm text-white/50">
                 <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
                 Loading prediction…
               </div>
-            ) : busyness ? (
+            ) : futureBusyness ? (
               <p className="mt-3 text-sm text-white/80">
-                {formatBusynessLevel(busyness.level)} · {busyness.score}
+                {formatBusynessLevel(futureBusyness.level)} ·{" "}
+                {futureBusyness.score}
               </p>
             ) : (
               <p className="mt-3 text-sm text-white/55">
-                {busynessError ?? "Busyness data unavailable."}
+                {futureBusynessError ?? "Future busyness data unavailable."}
               </p>
             )}
           </div>

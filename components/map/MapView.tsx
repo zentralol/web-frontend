@@ -21,7 +21,7 @@ import {
 } from "@/lib/geo/requestCurrentPosition";
 import { useAuthenticatedBackendFetch } from "@/lib/backend/useAuthenticatedBackendFetch";
 import { fetchLocationDetails } from "@/lib/map/fetchLocationDetails";
-import { fetchBusynessAtTime } from "@/lib/map/fetchPredictions";
+import { fetchBusynessData } from "@/lib/map/fetchPredictions";
 import type { LocationSelectionState } from "@/lib/map/types";
 import FitAttractionBounds from "@/components/map/FitAttractionBounds";
 import PanToTarget from "@/components/map/PanToTarget";
@@ -258,10 +258,9 @@ function MapContent({
             attractionId: attraction.id,
             source: "attraction" as const,
           };
-          const busynessData = await fetchBusynessAtTime(
+          const busynessData = await fetchBusynessData(
             attraction.lat,
             attraction.lng,
-            1,
             backendFetch,
           );
           if (cancelled) return;
@@ -283,7 +282,7 @@ function MapContent({
           geocodingLib,
         );
         if (cancelled) return;
-        const busynessData = await fetchBusynessAtTime(lat, lng, 1, backendFetch);
+        const busynessData = await fetchBusynessData(lat, lng, backendFetch);
         if (cancelled) return;
         onSelectionChange({
           status: "ready",
