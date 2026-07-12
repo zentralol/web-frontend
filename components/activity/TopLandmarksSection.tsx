@@ -1,25 +1,23 @@
 "use client";
 
-import { useMemo, useState } from "react";
-import { Clock, Loader2, MapPin } from "lucide-react";
+import { Clock, MapPin } from "lucide-react";
 import Link from "next/link";
 import { spaceGrotesk } from "@/app/ui/fonts";
 import { buildRoutesHref } from "@/lib/attractions/buildRoutesHref";
 import {
-  applyLandmarksSortOrder,
   type LandmarksSortOrder,
-  type TopLandmarksResult,
-} from "@/lib/activity/fetchTopLandmarks";
+  type TopLandmark,
+} from "@/lib/activity/fetchTopLandmarksFromPredictions";
 import {
   busynessLevelBadgeClass,
   formatBusynessLevel,
 } from "@/lib/activity/busynessDisplay";
 
-type SectionState = "idle" | "loading" | "ready" | "error";
-
 interface TopLandmarksSectionProps {
-  state: SectionState;
-  result: TopLandmarksResult;
+  landmarks: TopLandmark[];
+  targetTime: string;
+  sortOrder: LandmarksSortOrder;
+  onSortOrderChange: (sortOrder: LandmarksSortOrder) => void;
 }
 
 const SORT_OPTIONS: { value: LandmarksSortOrder; label: string }[] = [
@@ -60,15 +58,12 @@ function formatTargetTimeLabel(isoLike: string): string {
 }
 
 export function TopLandmarksSection({
-  state,
-  result,
+  landmarks,
+  targetTime,
+  sortOrder,
+  onSortOrderChange,
 }: TopLandmarksSectionProps) {
-  const [sortOrder, setSortOrder] = useState<LandmarksSortOrder>("busiest_first");
-
-  const displayedLandmarks = useMemo(
-    () => applyLandmarksSortOrder(result.landmarks, sortOrder),
-    [result.landmarks, sortOrder],
-  );
+  const hasLandmarks = landmarks.length > 0;
 
   return (
     <section className="rounded-2xl border border-white/10 bg-white/[0.03] p-5">
@@ -83,20 +78,20 @@ export function TopLandmarksSection({
             {SORT_HEADINGS[sortOrder]}
           </h2>
         </div>
-        {result.targetTime && state === "ready" && (
+        {targetTime && hasLandmarks && (
           <span className="shrink-0 text-[10px] font-mono text-white/40">
-            {formatTargetTimeLabel(result.targetTime)}
+            {formatTargetTimeLabel(targetTime)}
           </span>
         )}
       </div>
 
-      {state === "ready" && result.landmarks.length > 0 && (
+      {hasLandmarks && (
         <div className="mt-4 flex flex-wrap gap-2">
           {SORT_OPTIONS.map((option) => (
             <button
               key={option.value}
               type="button"
-              onClick={() => setSortOrder(option.value)}
+              onClick={() => onSortOrderChange(option.value)}
               className={`rounded-full border px-3 py-1 text-[11px] font-semibold uppercase tracking-wide transition-colors ${
                 sortOrder === option.value
                   ? "border-accent/50 bg-accent/10 text-accent"
@@ -109,28 +104,15 @@ export function TopLandmarksSection({
         </div>
       )}
 
-      {state === "loading" && (
-        <div className="mt-6 flex items-center gap-2 text-sm text-white/50">
-          <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
-          Loading predictions…
-        </div>
-      )}
-
-      {state === "error" && (
-        <p className="mt-6 text-sm text-red-400/90">
-          {result.error ?? "Could not load top landmarks."}
-        </p>
-      )}
-
-      {state === "ready" && result.landmarks.length === 0 && (
+      {!hasLandmarks && (
         <p className="mt-6 text-sm text-white/50">
           No busyness predictions available for landmarks right now.
         </p>
       )}
 
-      {state === "ready" && displayedLandmarks.length > 0 && (
+      {hasLandmarks && (
         <ul className="mt-5 space-y-3">
-          {displayedLandmarks.map((item) => (
+          {landmarks.map((item) => (
             <li
               key={item.attraction.id}
               className="rounded-xl border border-white/5 bg-[#121314]/55 p-3.5"

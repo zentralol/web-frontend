@@ -3,7 +3,9 @@ import { redirect } from "next/navigation";
 import { spaceGrotesk } from "@/app/ui/fonts";
 import { ActivityInsights } from "@/components/activity/ActivityInsights";
 import { SavedTrips } from "@/components/activity/SavedTrips";
-import { listAttractions } from "@/lib/attractions/queries";
+import { rankTopLandmarksFromPredictions } from "@/lib/activity/fetchTopLandmarksFromPredictions";
+import { listAttractions, listRecentAttractionPredictions } from "@/lib/attractions/queries";
+import type { AttractionPredictionRow } from "@/lib/attractions/types";
 import { listSavedItinerariesAction } from "@/lib/itineraries/actions";
 import { getOnboardingPreferences } from "@/lib/onboarding/queries";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
@@ -29,6 +31,15 @@ export default async function ActivityPage() {
     attractions = [];
   }
 
+  const [predictions] = await Promise.all([
+    listRecentAttractionPredictions(supabase).catch(() => [] as AttractionPredictionRow[]),
+  ]);
+
+  const topLandmarks = rankTopLandmarksFromPredictions(attractions, predictions, {
+    sortOrder: "busiest_first",
+    limit: 5,
+  });
+
   const itineraries = await listSavedItinerariesAction();
 
   return (
@@ -48,7 +59,7 @@ export default async function ActivityPage() {
         </p>
       </div>
 
-      <ActivityInsights attractions={attractions} />
+      <ActivityInsights attractions={attractions} topLandmarks={topLandmarks} />
 
       <div>
         <p className="mb-4 text-xs font-bold uppercase tracking-[0.25em] text-accent/80">

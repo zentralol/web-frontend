@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import type { Attraction } from "@/lib/attractions/types";
 import { useAuthenticatedBackendFetch } from "@/lib/backend/useAuthenticatedBackendFetch";
 import {
@@ -8,9 +8,10 @@ import {
   type CrowdForecastResult,
 } from "@/lib/activity/fetchCrowdForecast";
 import {
-  fetchTopLandmarks,
+  applyLandmarksSortOrder,
+  type LandmarksSortOrder,
   type TopLandmarksResult,
-} from "@/lib/activity/fetchTopLandmarks";
+} from "@/lib/activity/fetchTopLandmarksFromPredictions";
 import { useGeolocation, type Coords } from "@/lib/geo/useGeolocation";
 import { requestCurrentPosition } from "@/lib/geo/requestCurrentPosition";
 import { CrowdForecastSection } from "./CrowdForecastSection";
@@ -18,11 +19,12 @@ import { TopLandmarksSection } from "./TopLandmarksSection";
 
 interface ActivityInsightsProps {
   attractions: Attraction[];
+  topLandmarks: TopLandmarksResult;
 }
 
-type LoadState = "idle" | "loading" | "ready" | "error";
+type ForecastState = "idle" | "loading" | "ready" | "error";
 
-export function ActivityInsights({ attractions }: ActivityInsightsProps) {
+export function ActivityInsights({ attractions, topLandmarks }: ActivityInsightsProps) {
   const backendFetch = useAuthenticatedBackendFetch();
   const { coords: passiveCoords } = useGeolocation();
 
@@ -32,41 +34,17 @@ export function ActivityInsights({ attractions }: ActivityInsightsProps) {
 
   const userCoords = manualCoords ?? passiveCoords;
 
-  const [landmarksState, setLandmarksState] = useState<LoadState>("idle");
-  const [landmarksResult, setLandmarksResult] = useState<TopLandmarksResult>({
-    landmarks: [],
-    targetTime: "",
-  });
+  const [sortOrder, setSortOrder] = useState<LandmarksSortOrder>("busiest_first");
 
-  const [forecastState, setForecastState] = useState<LoadState>("idle");
+  const displayedLandmarks = useMemo(
+    () => applyLandmarksSortOrder(topLandmarks.landmarks, sortOrder),
+    [topLandmarks.landmarks, sortOrder],
+  );
+
+  const [forecastState, setForecastState] = useState<ForecastState>("idle");
   const [forecastResult, setForecastResult] = useState<CrowdForecastResult>({
     forecast: [],
   });
-
-  useEffect(() => {
-    let cancelled = false;
-
-    async function loadLandmarks() {
-      if (attractions.length === 0) {
-        setLandmarksState("ready");
-        setLandmarksResult({ landmarks: [], targetTime: "" });
-        return;
-      }
-
-      setLandmarksState("loading");
-      const result = await fetchTopLandmarks(attractions, backendFetch);
-      if (cancelled) return;
-
-      setLandmarksResult(result);
-      setLandmarksState(result.error ? "error" : "ready");
-    }
-
-    void loadLandmarks();
-
-    return () => {
-      cancelled = true;
-    };
-  }, [attractions, backendFetch]);
 
   useEffect(() => {
     if (!userCoords) {
@@ -124,7 +102,12 @@ export function ActivityInsights({ attractions }: ActivityInsightsProps) {
       </div>
 
       <div className="lg:col-span-5">
-        <TopLandmarksSection state={landmarksState} result={landmarksResult} />
+        <TopLandmarksSection
+          landmarks={displayedLandmarks}
+          targetTime={topLandmarks.targetTime}
+          sortOrder={sortOrder}
+          onSortOrderChange={setSortOrder}
+        />
       </div>
     </div>
   );
