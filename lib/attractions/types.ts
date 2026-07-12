@@ -8,6 +8,21 @@ export type AttractionRow = {
   lon: number;
 };
 
+import type { CrowdLevel } from "./crowdLevels";
+
+export type AttractionPredictionRow = {
+  attraction_id: number;
+  crowd_score: number | null;
+  crowd_level: string | null;
+  predicted_for: string;
+};
+
+export type AttractionCrowd = {
+  score: number;
+  level: CrowdLevel;
+  predictedFor: string;
+};
+
 export type Attraction = {
   id: number;
   name: string;
@@ -16,4 +31,5 @@ export type Attraction = {
   description: string;
   lat: number;
   lng: number;
+  crowd?: AttractionCrowd;
 };

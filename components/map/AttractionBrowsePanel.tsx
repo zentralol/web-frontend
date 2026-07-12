@@ -2,6 +2,7 @@
 
 import { Loader2, MapPin, Search } from "lucide-react";
 import { spaceGrotesk } from "@/app/ui/fonts";
+import { crowdLevelMeta } from "@/lib/attractions/crowdLevels";
 import type { AttractionSortMode } from "@/lib/attractions/filterAttractions";
 import type { CategoryGroup } from "@/lib/attractions/categoryGroups";
 import type { Attraction } from "@/lib/attractions/types";
@@ -213,11 +214,14 @@ export default function AttractionBrowsePanel({
                           aria-hidden
                         />
                         <div className="min-w-0 flex-1">
-                          <p
-                            className={`${spaceGrotesk.className} truncate text-sm font-semibold text-white`}
-                          >
-                            {attraction.name}
-                          </p>
+                          <div className="flex items-center gap-2">
+                            <p
+                              className={`${spaceGrotesk.className} min-w-0 truncate text-sm font-semibold text-white`}
+                            >
+                              {attraction.name}
+                            </p>
+                            <CrowdBadge level={attraction.crowd?.level} />
+                          </div>
                           <p className="mt-1 truncate text-xs text-white/55">
                             {attraction.category}
                             {attraction.neighborhood
@@ -240,6 +244,19 @@ export default function AttractionBrowsePanel({
         </>
       )}
     </div>
+  );
+}
+
+function CrowdBadge({ level }: { level?: string }) {
+  const meta = crowdLevelMeta(level);
+  if (!meta) return null;
+
+  return (
+    <span
+      className={`shrink-0 rounded-full border px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide ${meta.badgeClassName}`}
+    >
+      {meta.label}
+    </span>
   );
 }
 
