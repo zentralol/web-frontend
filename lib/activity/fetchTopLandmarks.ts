@@ -57,7 +57,7 @@ export function rankTopBusyAttractions(
   predictions: BatchPrediction[],
   options: RankTopBusyAttractionsOptions = {},
 ): TopLandmark[] {
-  const { limit = TOP_LANDMARKS_LIMIT, sortOrder = "busiest_first" } = options;
+  const sortOrder = options.sortOrder ?? "busiest_first";
   const attractionById = new Map(
     attractions.map((attraction) => [String(attraction.id), attraction]),
   );
@@ -82,7 +82,11 @@ export function rankTopBusyAttractions(
       rank: index + 1,
     }));
 
-  return limit === undefined ? ranked : ranked.slice(0, limit);
+  if (options.limit === undefined) {
+    return ranked;
+  }
+
+  return ranked.slice(0, options.limit);
 }
 
 export function applyLandmarksSortOrder(
@@ -168,10 +172,7 @@ export async function fetchTopLandmarks(
     }
 
     return {
-      landmarks: rankTopBusyAttractions(scenicAttractions, allPredictions, {
-        limit: undefined,
-        sortOrder: "busiest_first",
-      }),
+      landmarks: rankTopBusyAttractions(scenicAttractions, allPredictions),
       targetTime,
     };
   } catch (error) {

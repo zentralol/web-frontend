@@ -116,18 +116,24 @@ describe("rankTopBusyAttractions", () => {
     expect(ranked).toHaveLength(1);
     expect(ranked[0].attraction.id).toBe(2);
   });
-});
 
-describe("applyLandmarksSortOrder", () => {
-  const landmarks = rankTopBusyAttractions(
-    attractions,
-    [
+  it("returns every ranked landmark when limit is omitted", () => {
+    const ranked = rankTopBusyAttractions(attractions, [
       { clientId: "1", busynessScore: 40, busynessLevel: "moderate" },
       { clientId: "2", busynessScore: 90, busynessLevel: "very_busy" },
       { clientId: "3", busynessScore: 65, busynessLevel: "busy" },
-    ],
-    { limit: undefined },
-  );
+    ]);
+
+    expect(ranked).toHaveLength(3);
+  });
+});
+
+describe("applyLandmarksSortOrder", () => {
+  const landmarks = rankTopBusyAttractions(attractions, [
+    { clientId: "1", busynessScore: 40, busynessLevel: "moderate" },
+    { clientId: "2", busynessScore: 90, busynessLevel: "very_busy" },
+    { clientId: "3", busynessScore: 65, busynessLevel: "busy" },
+  ]);
 
   it("returns the quietest landmarks first", () => {
     const quietest = applyLandmarksSortOrder(landmarks, "quietest_first", 2);
@@ -141,6 +147,40 @@ describe("applyLandmarksSortOrder", () => {
     const busiest = applyLandmarksSortOrder(landmarks, "busiest_first", 2);
 
     expect(busiest.map((item) => item.attraction.id)).toEqual([2, 3]);
+  });
+
+  it("picks globally quietest landmarks instead of reversing the busiest slice", () => {
+    const expandedAttractions: Attraction[] = [
+      ...attractions,
+      {
+        id: 4,
+        name: "Quiet Park",
+        category: "Park",
+        ...baseAttraction,
+      },
+      {
+        id: 5,
+        name: "Quiet Museum",
+        category: "Museum",
+        neighborhood: "Lower East Side",
+        description: "",
+        lat: 40.72,
+        lng: -73.99,
+      },
+    ];
+
+    const allLandmarks = rankTopBusyAttractions(expandedAttractions, [
+      { clientId: "1", busynessScore: 96, busynessLevel: "very_busy" },
+      { clientId: "2", busynessScore: 100, busynessLevel: "very_busy" },
+      { clientId: "3", busynessScore: 99, busynessLevel: "very_busy" },
+      { clientId: "4", busynessScore: 12, busynessLevel: "quiet" },
+      { clientId: "5", busynessScore: 8, busynessLevel: "quiet" },
+    ]);
+
+    const quietest = applyLandmarksSortOrder(allLandmarks, "quietest_first", 2);
+
+    expect(quietest.map((item) => item.attraction.id)).toEqual([5, 4]);
+    expect(quietest.every((item) => item.busynessScore < 20)).toBe(true);
   });
 });
 
@@ -165,6 +205,40 @@ describe("fetchTopLandmarks", () => {
     expect(result.landmarks).toHaveLength(1);
     expect(result.landmarks[0]?.attraction.id).toBe(1);
     expect(result.landmarks[0]?.busynessScore).toBe(40);
+  });
+
+  it("returns all scenic predictions for client-side sorting", async () => {
+    const scenicOnly: Attraction[] = [
+      { id: 1, name: "Busy A", category: "Landmark", ...baseAttraction },
+      { id: 2, name: "Busy B", category: "Museum", neighborhood: "UES", description: "", lat: 40.78, lng: -73.96 },
+      { id: 3, name: "Busy C", category: "Park", neighborhood: "Central", description: "", lat: 40.77, lng: -73.97 },
+      { id: 4, name: "Quiet A", category: "Park", neighborhood: "Harlem", description: "", lat: 40.81, lng: -73.95 },
+      { id: 5, name: "Quiet B", category: "Museum", neighborhood: "Bronx", description: "", lat: 40.82, lng: -73.94 },
+      { id: 6, name: "Quiet C", category: "Theater", neighborhood: "Brooklyn", description: "", lat: 40.83, lng: -73.93 },
+    ];
+
+    const backendFetch = async () =>
+      ({
+        ok: true,
+        json: async () => ({
+          data: {
+            predictions: [
+              { clientId: "1", busynessScore: 100, busynessLevel: "very_busy" },
+              { clientId: "2", busynessScore: 99, busynessLevel: "very_busy" },
+              { clientId: "3", busynessScore: 98, busynessLevel: "very_busy" },
+              { clientId: "4", busynessScore: 10, busynessLevel: "quiet" },
+              { clientId: "5", busynessScore: 8, busynessLevel: "quiet" },
+              { clientId: "6", busynessScore: 5, busynessLevel: "quiet" },
+            ],
+          },
+        }),
+      }) as Response;
+
+    const result = await fetchTopLandmarks(scenicOnly, backendFetch);
+    const quietest = applyLandmarksSortOrder(result.landmarks, "quietest_first", 3);
+
+    expect(result.landmarks).toHaveLength(6);
+    expect(quietest.map((item) => item.attraction.id)).toEqual([6, 5, 4]);
   });
 
   it("returns empty results when no scenic attractions are present", async () => {
