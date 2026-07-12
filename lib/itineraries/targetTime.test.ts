@@ -34,9 +34,7 @@ describe("normalizeTargetTime", () => {
 describe("formatTargetTimeDisplay", () => {
   it("includes both date and time", () => {
     const formatted = formatTargetTimeDisplay("2026-07-10T16:00:00");
-    expect(formatted).toContain("2026");
-    expect(formatted).toContain("Jul");
-    expect(formatted).toMatch(/16:00/);
+    expect(formatted).toBe("Jul 10, 2026, 4:00 PM");
   });
 });
 

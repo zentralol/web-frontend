@@ -35,7 +35,7 @@ export function formatTargetTimeDisplay(iso: string): string {
   if (Number.isNaN(date.getTime())) {
     return "";
   }
-  return date.toLocaleString(undefined, {
+  return date.toLocaleString("en-US", {
     year: "numeric",
     month: "short",
     day: "numeric",
