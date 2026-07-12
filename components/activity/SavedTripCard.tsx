@@ -1,11 +1,13 @@
 "use client";
 
 import { useState } from "react";
-import { Loader2, MapPin, Trash2 } from "lucide-react";
+import { Calendar, Loader2, MapPin, Trash2 } from "lucide-react";
 import { spaceGrotesk } from "@/app/ui/fonts";
 import { PlaceCards } from "@/components/assistant/PlaceCards";
 import { MarkdownMessage } from "@/components/assistant/MarkdownMessage";
 import { NoteEditor } from "@/components/activity/NoteEditor";
+import { TargetTimeEditor } from "@/components/activity/TargetTimeEditor";
+import { formatTargetTimeDisplay } from "@/lib/itineraries/targetTime";
 import type { SavedItinerary } from "@/lib/itineraries/types";
 import type { ItinerarySource } from "@/lib/itineraries/types";
 
@@ -28,6 +30,7 @@ function formatSavedDate(iso: string): string {
     day: "numeric",
   });
 }
+
 interface SavedTripCardProps {
   itinerary: SavedItinerary;
   onDelete: (id: string) => Promise<void>;
@@ -38,6 +41,10 @@ export function SavedTripCard({ itinerary, onDelete }: SavedTripCardProps) {
 
   const placeCount = itinerary.items.length;
   const savedDate = formatSavedDate(itinerary.createdAt);
+  const plannedFor = itinerary.targetTime
+    ? formatTargetTimeDisplay(itinerary.targetTime)
+    : "";
+
   const handleDelete = async () => {
     if (isDeleting) return;
     setIsDeleting(true);
@@ -65,7 +72,13 @@ export function SavedTripCard({ itinerary, onDelete }: SavedTripCardProps) {
               <MapPin className="h-3 w-3" aria-hidden />
               {placeCount} {placeCount === 1 ? "place" : "places"}
             </span>
-{savedDate && <span>Saved {savedDate}</span>}
+            {plannedFor && (
+              <span className="flex items-center gap-1">
+                <Calendar className="h-3 w-3" aria-hidden />
+                Planned for {plannedFor}
+              </span>
+            )}
+            {savedDate && <span>Saved {savedDate}</span>}
           </div>
         </div>
         <button
@@ -90,6 +103,11 @@ export function SavedTripCard({ itinerary, onDelete }: SavedTripCardProps) {
       )}
 
       <PlaceCards source={itinerary.source} items={itinerary.items} />
+
+      <TargetTimeEditor
+        itineraryId={itinerary.id}
+        initialTargetTime={itinerary.targetTime}
+      />
 
       <NoteEditor itineraryId={itinerary.id} initialNote={itinerary.note} />
     </div>

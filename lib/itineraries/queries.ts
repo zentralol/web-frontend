@@ -39,6 +39,7 @@ export async function createSavedItinerary(
       source: payload.source,
       items: payload.items,
       description: payload.description ?? null,
+      target_time: payload.targetTime ?? null,
     })
     .select("*")
     .single();
@@ -107,5 +108,24 @@ async function assertOwnedItinerary(
 
   if (!existing) {
     throw new Error("Itinerary not found");
+  }
+}
+
+export async function updateSavedItineraryTargetTime(
+  supabase: SupabaseClient,
+  userId: string,
+  itineraryId: string,
+  targetTime: string | null,
+): Promise<void> {
+  await assertOwnedItinerary(supabase, userId, itineraryId);
+
+  const { error } = await supabase
+    .from(TABLE)
+    .update({ target_time: targetTime })
+    .eq("id", itineraryId)
+    .eq("user_id", userId);
+
+  if (error) {
+    throw error;
   }
 }

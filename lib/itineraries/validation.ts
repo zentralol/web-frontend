@@ -1,5 +1,6 @@
 import type { PlaceCardItem } from "@/lib/assistant/agentStreamAdapter";
 import type { ItinerarySource } from "./types";
+import { isValidTargetTime, normalizeTargetTime } from "./targetTime";
 
 const ITINERARY_SOURCES = new Set<ItinerarySource>([
   "nearby",
@@ -20,6 +21,7 @@ export type ParsedSaveItinerary = {
   description?: string;
   title?: string;
   conversationId: string | null;
+  targetTime: string | null;
 };
 
 function invalidItinerary(): never {
@@ -80,6 +82,25 @@ function parsePlaceCardItem(value: unknown): PlaceCardItem {
   };
 }
 
+
+/** Validate optional planned visit datetime (date + time). */
+export function parseTargetTimeInput(input: unknown): string | null {
+  if (input === undefined || input === null) {
+    return null;
+  }
+  if (typeof input !== "string") {
+    throw new Error("Invalid target time");
+  }
+  const trimmed = input.trim();
+  if (!trimmed) {
+    return null;
+  }
+  if (!isValidTargetTime(trimmed)) {
+    throw new Error("Invalid target time");
+  }
+  return normalizeTargetTime(trimmed);
+}
+
 /**
  * Validate untrusted save input from the client boundary. Throws on any
  * malformed field. Returns a normalized payload ready to persist.
@@ -127,12 +148,15 @@ export function parseSaveItineraryInput(input: unknown): ParsedSaveItinerary {
     }
   }
 
+  const targetTime = parseTargetTimeInput(object.targetTime);
+
   return {
     source: source as ItinerarySource,
     items,
     description,
     title,
     conversationId,
+    targetTime,
   };
 }
 

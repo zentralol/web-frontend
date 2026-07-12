@@ -106,6 +106,7 @@ function AssistantMessageRow({
                         items={data.items}
                         description={data.summary}
                         conversationId={conversationId}
+                        targetTime={data.targetTime}
                       />
                     )}
                   </div>

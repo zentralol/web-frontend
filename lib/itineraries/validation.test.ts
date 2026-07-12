@@ -163,6 +163,53 @@ describe("parseSaveItineraryInput", () => {
   });
 });
 
+
+  it("accepts a valid targetTime datetime", () => {
+    const result = parseSaveItineraryInput({
+      source: "itinerary",
+      items: [validItem],
+      targetTime: "2026-07-10T16:00:00",
+    });
+    expect(result.targetTime).toBe("2026-07-10T16:00:00");
+  });
+
+  it("normalizes targetTime without seconds", () => {
+    const result = parseSaveItineraryInput({
+      source: "itinerary",
+      items: [validItem],
+      targetTime: "2026-07-10T16:00",
+    });
+    expect(result.targetTime).toBe("2026-07-10T16:00:00");
+  });
+
+  it("rejects time-only targetTime", () => {
+    expect(() =>
+      parseSaveItineraryInput({
+        source: "itinerary",
+        items: [validItem],
+        targetTime: "16:00:00",
+      }),
+    ).toThrow("Invalid target time");
+  });
+
+  it("rejects date-only targetTime", () => {
+    expect(() =>
+      parseSaveItineraryInput({
+        source: "itinerary",
+        items: [validItem],
+        targetTime: "2026-07-10",
+      }),
+    ).toThrow("Invalid target time");
+  });
+
+  it("defaults targetTime to null when omitted", () => {
+    const result = parseSaveItineraryInput({
+      source: "itinerary",
+      items: [validItem],
+    });
+    expect(result.targetTime).toBeNull();
+  });
+
 describe("parseNoteInput", () => {
   it("returns an empty string for null or undefined", () => {
     expect(parseNoteInput(null)).toBe("");

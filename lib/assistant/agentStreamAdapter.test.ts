@@ -388,6 +388,37 @@ describe("recommendation cards", () => {
   });
 });
 
+
+  it("parses target_time on recommendation events", () => {
+    expect(
+      buildRecommendationCards({
+        type: "recommendations",
+        data: {
+          source: "itinerary",
+          target_time: "2026-07-10T16:00:00",
+          items: [
+            {
+              candidate_id: "itinerary:essex-market",
+              rank: 1,
+              reason: "Dinner",
+              name: "Essex Market",
+              lat: 40.7185,
+              lng: -73.9877,
+              subtitle: "Lower East Side",
+              detail: "food",
+            },
+          ],
+        },
+      }),
+    ).toEqual({
+      source: "itinerary",
+      targetTime: "2026-07-10T16:00:00",
+      items: [
+        expect.objectContaining({ candidateId: "itinerary:essex-market" }),
+      ],
+    });
+  });
+
 describe("getActiveToolFromParts", () => {
   it("returns the active tool from the latest running status", () => {
     const parts = [
