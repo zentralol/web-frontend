@@ -86,21 +86,3 @@ export function rankTopLandmarksFromPredictions(
     targetTime: newestPredictedFor ?? "",
   };
 }
-
-/** Re-sorts already-fetched landmarks (used for client-side sort toggles). */
-export function applyLandmarksSortOrder(
-  landmarks: TopLandmark[],
-  sortOrder: LandmarksSortOrder,
-  limit = TOP_LANDMARKS_LIMIT,
-): TopLandmark[] {
-  const sorted = [...landmarks].sort((left, right) =>
-    sortOrder === "busiest_first"
-      ? right.busynessScore - left.busynessScore
-      : left.busynessScore - right.busynessScore,
-  );
-
-  return sorted.slice(0, limit).map((item, index) => ({
-    ...item,
-    rank: index + 1,
-  }));
-}

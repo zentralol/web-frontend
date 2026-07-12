@@ -2,15 +2,15 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import type { Attraction } from "@/lib/attractions/types";
+import type { AttractionPredictionRow } from "@/lib/attractions/types";
 import { useAuthenticatedBackendFetch } from "@/lib/backend/useAuthenticatedBackendFetch";
 import {
   fetchCrowdForecast,
   type CrowdForecastResult,
 } from "@/lib/activity/fetchCrowdForecast";
 import {
-  applyLandmarksSortOrder,
+  rankTopLandmarksFromPredictions,
   type LandmarksSortOrder,
-  type TopLandmarksResult,
 } from "@/lib/activity/fetchTopLandmarksFromPredictions";
 import { useGeolocation, type Coords } from "@/lib/geo/useGeolocation";
 import { requestCurrentPosition } from "@/lib/geo/requestCurrentPosition";
@@ -19,12 +19,12 @@ import { TopLandmarksSection } from "./TopLandmarksSection";
 
 interface ActivityInsightsProps {
   attractions: Attraction[];
-  topLandmarks: TopLandmarksResult;
+  predictions: AttractionPredictionRow[];
 }
 
 type ForecastState = "idle" | "loading" | "ready" | "error";
 
-export function ActivityInsights({ attractions, topLandmarks }: ActivityInsightsProps) {
+export function ActivityInsights({ attractions, predictions }: ActivityInsightsProps) {
   const backendFetch = useAuthenticatedBackendFetch();
   const { coords: passiveCoords } = useGeolocation();
 
@@ -36,9 +36,13 @@ export function ActivityInsights({ attractions, topLandmarks }: ActivityInsights
 
   const [sortOrder, setSortOrder] = useState<LandmarksSortOrder>("busiest_first");
 
-  const displayedLandmarks = useMemo(
-    () => applyLandmarksSortOrder(topLandmarks.landmarks, sortOrder),
-    [topLandmarks.landmarks, sortOrder],
+  const { landmarks: displayedLandmarks, targetTime } = useMemo(
+    () =>
+      rankTopLandmarksFromPredictions(attractions, predictions, {
+        sortOrder,
+        limit: 5,
+      }),
+    [attractions, predictions, sortOrder],
   );
 
   const [forecastState, setForecastState] = useState<ForecastState>("idle");
@@ -104,7 +108,7 @@ export function ActivityInsights({ attractions, topLandmarks }: ActivityInsights
       <div className="lg:col-span-5">
         <TopLandmarksSection
           landmarks={displayedLandmarks}
-          targetTime={topLandmarks.targetTime}
+          targetTime={targetTime}
           sortOrder={sortOrder}
           onSortOrderChange={setSortOrder}
         />

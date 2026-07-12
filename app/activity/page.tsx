@@ -3,7 +3,6 @@ import { redirect } from "next/navigation";
 import { spaceGrotesk } from "@/app/ui/fonts";
 import { ActivityInsights } from "@/components/activity/ActivityInsights";
 import { SavedTrips } from "@/components/activity/SavedTrips";
-import { rankTopLandmarksFromPredictions } from "@/lib/activity/fetchTopLandmarksFromPredictions";
 import { listAttractions, listRecentAttractionPredictions } from "@/lib/attractions/queries";
 import type { AttractionPredictionRow } from "@/lib/attractions/types";
 import { listSavedItinerariesAction } from "@/lib/itineraries/actions";
@@ -24,23 +23,11 @@ export default async function ActivityPage() {
     redirect("/onboarding");
   }
 
-  let attractions: Awaited<ReturnType<typeof listAttractions>> = [];
-  try {
-    attractions = await listAttractions(supabase);
-  } catch {
-    attractions = [];
-  }
-
-  const [predictions] = await Promise.all([
+  const [attractions, predictions, itineraries] = await Promise.all([
+    listAttractions(supabase).catch(() => [] as Awaited<ReturnType<typeof listAttractions>>),
     listRecentAttractionPredictions(supabase).catch(() => [] as AttractionPredictionRow[]),
+    listSavedItinerariesAction().catch(() => [] as Awaited<ReturnType<typeof listSavedItinerariesAction>>),
   ]);
-
-  const topLandmarks = rankTopLandmarksFromPredictions(attractions, predictions, {
-    sortOrder: "busiest_first",
-    limit: 5,
-  });
-
-  const itineraries = await listSavedItinerariesAction();
 
   return (
     <div className="mx-auto max-w-6xl px-4 py-10 sm:px-6">
@@ -59,7 +46,7 @@ export default async function ActivityPage() {
         </p>
       </div>
 
-      <ActivityInsights attractions={attractions} topLandmarks={topLandmarks} />
+      <ActivityInsights attractions={attractions} predictions={predictions} />
 
       <div>
         <p className="mb-4 text-xs font-bold uppercase tracking-[0.25em] text-accent/80">
