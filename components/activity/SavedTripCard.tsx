@@ -7,6 +7,7 @@ import { PlaceCards } from "@/components/assistant/PlaceCards";
 import { MarkdownMessage } from "@/components/assistant/MarkdownMessage";
 import { NoteEditor } from "@/components/activity/NoteEditor";
 import { TargetTimeEditor } from "@/components/activity/TargetTimeEditor";
+import { ConfirmDialog } from "@/components/ConfirmDialog";
 import { formatTargetTimeDisplay } from "@/lib/itineraries/targetTime";
 import type { SavedItinerary } from "@/lib/itineraries/types";
 import type { ItinerarySource } from "@/lib/itineraries/types";
@@ -37,6 +38,7 @@ interface SavedTripCardProps {
 }
 
 export function SavedTripCard({ itinerary, onDelete }: SavedTripCardProps) {
+  const [showConfirm, setShowConfirm] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
 
   const placeCount = itinerary.items.length;
@@ -50,12 +52,28 @@ export function SavedTripCard({ itinerary, onDelete }: SavedTripCardProps) {
     setIsDeleting(true);
     try {
       await onDelete(itinerary.id);
+      setShowConfirm(false);
     } catch {
       setIsDeleting(false);
     }
   };
 
+  const handleConfirmDelete = () => {
+    void handleDelete();
+  };
+
   return (
+    <>
+    <ConfirmDialog
+      open={showConfirm}
+      title="Delete trip?"
+      description={`This will remove "${itinerary.title}" from your saved trips. This action cannot be undone.`}
+      confirmLabel="Delete"
+      cancelLabel="Cancel"
+      isLoading={isDeleting}
+      onConfirm={handleConfirmDelete}
+      onCancel={() => setShowConfirm(false)}
+    />
     <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-4 sm:p-5">
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
@@ -83,7 +101,7 @@ export function SavedTripCard({ itinerary, onDelete }: SavedTripCardProps) {
         </div>
         <button
           type="button"
-          onClick={handleDelete}
+          onClick={() => setShowConfirm(true)}
           disabled={isDeleting}
           aria-label={`Delete ${itinerary.title}`}
           className="flex shrink-0 items-center justify-center rounded-lg border border-white/10 bg-white/[0.03] p-2 text-white/50 transition-colors hover:border-red-500/30 hover:bg-red-500/10 hover:text-red-200 disabled:opacity-50"
@@ -111,5 +129,6 @@ export function SavedTripCard({ itinerary, onDelete }: SavedTripCardProps) {
 
       <NoteEditor itineraryId={itinerary.id} initialNote={itinerary.note} />
     </div>
+    </>
   );
 }
