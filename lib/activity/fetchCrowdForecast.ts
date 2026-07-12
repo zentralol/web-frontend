@@ -1,18 +1,22 @@
 import type { FetchLike } from "@/lib/backend/authenticatedFetch";
+import { toForecastTimeLabel } from "@/lib/map/fetchPredictions";
+import {
+  addHoursInNewYork,
+  formatInNewYork,
+} from "@/lib/time/manhattanTime";
 import {
   backendBaseUrl,
   buildApiUrl,
   normalizeBaseUrl,
   parseApiError,
-} from "@/lib/activity/predictionApi";
-import { formatInNewYork } from "@/lib/time/manhattanTime";
+} from "./predictionApi";
+
+export const FORECAST_HOURS = 8;
+export const FORECAST_LIMIT = 8;
 
 type ApiErrorPayload = {
   success?: boolean;
-  error?: {
-    code?: string;
-    message?: string;
-  };
+  error?: { code?: string; message?: string };
 };
 
 type CurrentPredictionPayload = {
@@ -38,55 +42,37 @@ type ForecastPayload = {
   };
 };
 
-export type BusynessData = {
-  busyness?: {
+export type ForecastPoint = {
+  timestamp: string;
+  rawTimestamp: string;
+  score: number;
+  level: string;
+};
+
+export type CrowdForecastResult = {
+  current?: {
     score: number;
     level: string;
     period?: string;
     confidence?: number;
   };
-  forecast?: Array<{
-    timestamp: string;
-    score: number;
-    level: string;
-  }>;
-  busynessError?: string;
+  forecast: ForecastPoint[];
+  error?: string;
 };
 
-const NAIVE_DATE_TIME_PATTERN =
-  /^\d{4}-\d{2}-\d{2}T(\d{2}):(\d{2})/;
-
-export function toForecastTimeLabel(isoLikeValue: string): string {
-  // API convention: date-time digits are Manhattan wall-clock time; a trailing
-  // "Z" is a serialization artifact. Parsing with `new Date()` would reinterpret
-  // the digits in the viewer's local timezone, so read them directly instead.
-  const match = isoLikeValue.match(NAIVE_DATE_TIME_PATTERN);
-  if (!match) {
-    return isoLikeValue;
-  }
-  const hour = Number(match[1]);
-  const minute = match[2];
-  if (hour > 23) {
-    return isoLikeValue;
-  }
-  const suffix = hour >= 12 ? "PM" : "AM";
-  const hour12 = hour % 12 === 0 ? 12 : hour % 12;
-  return `${hour12}:${minute} ${suffix}`;
-}
-
-export async function fetchBusynessData(
+export async function fetchCrowdForecast(
   lat: number,
   lng: number,
   backendFetch: FetchLike,
-): Promise<BusynessData> {
+): Promise<CrowdForecastResult> {
   try {
     const baseUrl = normalizeBaseUrl(backendBaseUrl);
     const now = new Date();
-    const sixHoursLater = new Date(now.getTime() + 6 * 60 * 60 * 1000);
+    const end = addHoursInNewYork(now, FORECAST_HOURS);
 
     const targetTime = formatInNewYork(now);
     const startTime = targetTime;
-    const endTime = formatInNewYork(sixHoursLater);
+    const endTime = formatInNewYork(end);
 
     const currentPromise = backendFetch(buildApiUrl(baseUrl, "/predictions"), {
       method: "POST",
@@ -104,7 +90,7 @@ export async function fetchBusynessData(
     forecastUrl.searchParams.set("lng", String(lng));
     forecastUrl.searchParams.set("startTime", startTime);
     forecastUrl.searchParams.set("endTime", endTime);
-    forecastUrl.searchParams.set("limit", "6");
+    forecastUrl.searchParams.set("limit", String(FORECAST_LIMIT));
 
     const forecastPromise = backendFetch(forecastUrl.toString());
 
@@ -120,7 +106,7 @@ export async function fetchBusynessData(
       | ForecastPayload
       | ApiErrorPayload;
 
-    const hasCurrentPrediction =
+    const hasCurrent =
       currentResponse.ok &&
       (currentPayload as CurrentPredictionPayload).data?.prediction
         ?.busynessScore != null &&
@@ -131,23 +117,23 @@ export async function fetchBusynessData(
       forecastResponse.ok &&
       Array.isArray((forecastPayload as ForecastPayload).data?.forecast);
 
-    if (!hasCurrentPrediction && !hasForecast) {
+    if (!hasCurrent && !hasForecast) {
       return {
-        busynessError: parseApiError(
+        forecast: [],
+        error: parseApiError(
           currentPayload,
-          parseApiError(forecastPayload, "Could not load busyness predictions."),
+          parseApiError(forecastPayload, "Could not load crowd forecast."),
         ),
       };
     }
 
     const current = (currentPayload as CurrentPredictionPayload).data?.prediction;
-    const forecastItems = (forecastPayload as ForecastPayload).data?.forecast ?? [];
+    const forecastItems =
+      (forecastPayload as ForecastPayload).data?.forecast ?? [];
 
     return {
-      busyness:
-        hasCurrentPrediction &&
-        current?.busynessScore != null &&
-        current.busynessLevel
+      current:
+        hasCurrent && current?.busynessScore != null && current.busynessLevel
           ? {
               score: current.busynessScore,
               level: current.busynessLevel,
@@ -164,19 +150,23 @@ export async function fetchBusynessData(
                 item.busynessLevel != null,
             )
             .map((item) => ({
+              rawTimestamp: item.timestamp as string,
               timestamp: toForecastTimeLabel(item.timestamp as string),
               score: item.busynessScore as number,
               level: item.busynessLevel as string,
             }))
-        : undefined,
-      busynessError:
-        !hasCurrentPrediction || !hasForecast
+        : [],
+      error:
+        !hasCurrent || !hasForecast
           ? !currentResponse.ok
             ? parseApiError(currentPayload, "Could not load current busyness.")
             : parseApiError(forecastPayload, "Could not load forecast data.")
           : undefined,
     };
   } catch {
-    return { busynessError: "Could not load busyness predictions." };
+    return {
+      forecast: [],
+      error: "Could not load crowd forecast.",
+    };
   }
 }

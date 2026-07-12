@@ -1,6 +1,5 @@
 import { spaceGrotesk } from "@/app/ui/fonts";
 
-const ACTIVITY_CARD_COUNT = 3;
 const ACTIVITY_ROW_COUNT = 4;
 
 export default function ActivitySkeleton() {
@@ -22,16 +21,14 @@ export default function ActivitySkeleton() {
         <div className="mt-4 h-4 w-80 max-w-full rounded-full bg-white/10" />
       </div>
 
-      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-        {Array.from({ length: ACTIVITY_CARD_COUNT }, (_, index) => (
-          <div
-            key={index}
-            className="h-32 rounded-2xl border border-white/10 bg-white/[0.03]"
-          />
-        ))}
+      <div className="mb-12 grid grid-cols-1 gap-6 lg:grid-cols-12">
+        <div className="h-64 rounded-2xl border border-white/10 bg-white/[0.03] lg:col-span-7" />
+        <div className="h-64 rounded-2xl border border-white/10 bg-white/[0.03] lg:col-span-5" />
       </div>
 
-      <div className="mt-8 space-y-3">
+      <div className="mb-4 h-3 w-24 rounded-full bg-white/10" />
+
+      <div className="space-y-3">
         {Array.from({ length: ACTIVITY_ROW_COUNT }, (_, index) => (
           <div
             key={index}

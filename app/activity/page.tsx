@@ -1,8 +1,34 @@
+import { auth } from "@clerk/nextjs/server";
+import { redirect } from "next/navigation";
 import { spaceGrotesk } from "@/app/ui/fonts";
+import { ActivityInsights } from "@/components/activity/ActivityInsights";
 import { SavedTrips } from "@/components/activity/SavedTrips";
+import { listAttractions } from "@/lib/attractions/queries";
 import { listSavedItinerariesAction } from "@/lib/itineraries/actions";
+import { getOnboardingPreferences } from "@/lib/onboarding/queries";
+import { createServerSupabaseClient } from "@/lib/supabase/server";
 
 export default async function ActivityPage() {
+  const { userId } = await auth();
+
+  if (!userId) {
+    redirect("/sign-in");
+  }
+
+  const supabase = await createServerSupabaseClient();
+  const preferences = await getOnboardingPreferences(supabase, userId);
+
+  if (!preferences?.onboardingCompleted) {
+    redirect("/onboarding");
+  }
+
+  let attractions: Awaited<ReturnType<typeof listAttractions>> = [];
+  try {
+    attractions = await listAttractions(supabase);
+  } catch {
+    attractions = [];
+  }
+
   const itineraries = await listSavedItinerariesAction();
 
   return (
@@ -17,12 +43,19 @@ export default async function ActivityPage() {
           Your journey
         </h1>
         <p className="mt-4 max-w-xl text-sm text-white/55">
-          Trips you saved from the assistant. Revisit a plan or head straight to
-          any stop.
+          Live crowd analytics for Manhattan plus trips you saved from the
+          assistant.
         </p>
       </div>
 
-      <SavedTrips initialItineraries={itineraries} />
+      <ActivityInsights attractions={attractions} />
+
+      <div>
+        <p className="mb-4 text-xs font-bold uppercase tracking-[0.25em] text-accent/80">
+          Saved trips
+        </p>
+        <SavedTrips initialItineraries={itineraries} />
+      </div>
     </div>
   );
 }
