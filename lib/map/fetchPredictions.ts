@@ -1,10 +1,11 @@
 import type { FetchLike } from "@/lib/backend/authenticatedFetch";
-
-const DEFAULT_BACKEND_BASE_URL = "http://localhost:3000";
-const API_PREFIX = "/api/v1";
-
-const backendBaseUrl =
-  process.env.NEXT_PUBLIC_BACKEND_API_BASE_URL ?? DEFAULT_BACKEND_BASE_URL;
+import {
+  backendBaseUrl,
+  buildApiUrl,
+  normalizeBaseUrl,
+  parseApiError,
+} from "@/lib/activity/predictionApi";
+import { formatInNewYork } from "@/lib/time/manhattanTime";
 
 type ApiErrorPayload = {
   success?: boolean;
@@ -51,55 +52,6 @@ export type BusynessData = {
   }>;
   busynessError?: string;
 };
-
-function formatInNewYork(date: Date): string {
-  const formatter = new Intl.DateTimeFormat("en-CA", {
-    timeZone: "America/New_York",
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-    hour: "2-digit",
-    minute: "2-digit",
-    second: "2-digit",
-    hourCycle: "h23",
-  });
-
-  const parts = formatter.formatToParts(date);
-  const year = parts.find((part) => part.type === "year")?.value;
-  const month = parts.find((part) => part.type === "month")?.value;
-  const day = parts.find((part) => part.type === "day")?.value;
-  const hour = parts.find((part) => part.type === "hour")?.value;
-  const minute = parts.find((part) => part.type === "minute")?.value;
-  const second = parts.find((part) => part.type === "second")?.value;
-
-  if (!year || !month || !day || !hour || !minute || !second) {
-    throw new Error("Failed to format time in America/New_York");
-  }
-
-  return `${year}-${month}-${day}T${hour}:${minute}:${second}`;
-}
-
-function parseApiError(payload: unknown, fallbackMessage: string): string {
-  if (!payload || typeof payload !== "object") {
-    return fallbackMessage;
-  }
-  const maybeError = (payload as ApiErrorPayload).error;
-  if (!maybeError) {
-    return fallbackMessage;
-  }
-  if (maybeError.code === "LOCATION_OUT_OF_COVERAGE") {
-    return "Predictions are currently available for Manhattan only.";
-  }
-  return maybeError.message ?? fallbackMessage;
-}
-
-function normalizeBaseUrl(url: string): string {
-  return url.endsWith("/") ? url.slice(0, -1) : url;
-}
-
-function buildApiUrl(baseUrl: string, path: string): string {
-  return `${baseUrl}${API_PREFIX}${path}`;
-}
 
 const NAIVE_DATE_TIME_PATTERN =
   /^\d{4}-\d{2}-\d{2}T(\d{2}):(\d{2})/;
