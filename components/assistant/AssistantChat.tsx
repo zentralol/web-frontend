@@ -10,6 +10,7 @@ import { useGeolocation } from "@/lib/geo/useGeolocation";
 import { spaceGrotesk } from "@/app/ui/fonts";
 import { MarkdownMessage } from "@/components/assistant/MarkdownMessage";
 import { PlaceCards } from "@/components/assistant/PlaceCards";
+import { SaveItineraryButton } from "@/components/assistant/SaveItineraryButton";
 import {
   getActiveToolFromParts,
   PLACE_CARDS_DATA_TYPE,
@@ -52,6 +53,7 @@ type AssistantMessageRowProps = {
   parts: UIMessage["parts"];
   isThinking: boolean;
   isStreaming: boolean;
+  conversationId: string;
 };
 
 function AssistantMessageRow({
@@ -59,6 +61,7 @@ function AssistantMessageRow({
   parts,
   isThinking,
   isStreaming,
+  conversationId,
 }: AssistantMessageRowProps) {
   return (
     <div
@@ -92,12 +95,23 @@ function AssistantMessageRow({
             )}
             {parts
               .filter((part) => part.type === PLACE_CARDS_DATA_TYPE)
-              .map((part, index) => (
-                <PlaceCards
-                  key={index}
-                  {...((part as { data: PlaceCardsData }).data)}
-                />
-              ))}
+              .map((part, index) => {
+                const data = (part as { data: PlaceCardsData }).data;
+                return (
+                  <div key={index}>
+                    <PlaceCards {...data} />
+                    {!isStreaming && (
+                      <SaveItineraryButton
+                        source={data.source}
+                        items={data.items}
+                        description={data.summary}
+                        conversationId={conversationId}
+                        targetTime={data.targetTime}
+                      />
+                    )}
+                  </div>
+                );
+              })}
           </>
         )}
       </div>
@@ -226,6 +240,7 @@ export function AssistantChat({
                   parts={message.parts}
                   isThinking={isThinkingBubble}
                   isStreaming={isStreamingAssistant}
+                  conversationId={conversationId}
                 />
               );
             }
@@ -253,6 +268,7 @@ export function AssistantChat({
               parts={[]}
               isThinking
               isStreaming={false}
+              conversationId={conversationId}
             />
           )}
 
