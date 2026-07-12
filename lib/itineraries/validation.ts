@@ -102,6 +102,39 @@ export function parseTargetTimeInput(input: unknown): string | null {
 }
 
 /**
+ * Validate an untrusted trip title. Requires a non-empty trimmed string
+ * within the length cap. Throws on invalid input.
+ */
+export function parseTitleInput(input: unknown): string {
+  if (typeof input !== "string") {
+    throw new Error("Invalid title");
+  }
+  const trimmed = input.trim();
+  if (trimmed.length === 0) {
+    throw new Error("Invalid title");
+  }
+  if (trimmed.length > MAX_TITLE_LENGTH) {
+    throw new Error("Invalid title");
+  }
+  return trimmed;
+}
+
+/**
+ * Validate optional title on save input. Undefined/null skips; empty string
+ * is dropped; non-empty values must pass parseTitleInput.
+ */
+function parseOptionalSaveTitle(input: unknown): string | undefined {
+  if (input === undefined || input === null) {
+    return undefined;
+  }
+  try {
+    return parseTitleInput(input);
+  } catch {
+    invalidItinerary();
+  }
+}
+
+/**
  * Validate untrusted save input from the client boundary. Throws on any
  * malformed field. Returns a normalized payload ready to persist.
  */
@@ -139,13 +172,7 @@ export function parseSaveItineraryInput(input: unknown): ParsedSaveItinerary {
 
   let title: string | undefined;
   if (object.title !== undefined && object.title !== null) {
-    const trimmed = requireString(object.title).trim();
-    if (trimmed.length > MAX_TITLE_LENGTH) {
-      invalidItinerary();
-    }
-    if (trimmed.length > 0) {
-      title = trimmed;
-    }
+    title = parseOptionalSaveTitle(object.title);
   }
 
   const targetTime = parseTargetTimeInput(object.targetTime);

@@ -3,6 +3,7 @@ import {
   deriveItineraryTitle,
   parseNoteInput,
   parseSaveItineraryInput,
+  parseTitleInput,
 } from "./validation";
 import type { PlaceCardItem } from "@/lib/assistant/agentStreamAdapter";
 
@@ -161,8 +162,6 @@ describe("parseSaveItineraryInput", () => {
     // Assert
     expect(result.description).toHaveLength(1000);
   });
-});
-
 
   it("accepts a valid targetTime datetime", () => {
     const result = parseSaveItineraryInput({
@@ -209,6 +208,26 @@ describe("parseSaveItineraryInput", () => {
     });
     expect(result.targetTime).toBeNull();
   });
+});
+
+describe("parseTitleInput", () => {
+  it("trims and returns a valid title", () => {
+    expect(parseTitleInput("  My trip  ")).toBe("My trip");
+  });
+
+  it("rejects an empty string", () => {
+    expect(() => parseTitleInput("")).toThrow("Invalid title");
+    expect(() => parseTitleInput("   ")).toThrow("Invalid title");
+  });
+
+  it("rejects a non-string", () => {
+    expect(() => parseTitleInput(42)).toThrow("Invalid title");
+  });
+
+  it("rejects a title over the max length", () => {
+    expect(() => parseTitleInput("x".repeat(121))).toThrow("Invalid title");
+  });
+});
 
 describe("parseNoteInput", () => {
   it("returns an empty string for null or undefined", () => {

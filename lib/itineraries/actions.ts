@@ -9,12 +9,14 @@ import {
   softDeleteSavedItinerary,
   updateSavedItineraryNote,
   updateSavedItineraryTargetTime,
+  updateSavedItineraryTitle,
 } from "./queries";
 import {
   deriveItineraryTitle,
   parseNoteInput,
   parseSaveItineraryInput,
   parseTargetTimeInput,
+  parseTitleInput,
 } from "./validation";
 import type { SavedItinerary } from "./types";
 
@@ -76,4 +78,15 @@ export async function updateItineraryTargetTimeAction(
   const parsed = parseTargetTimeInput(targetTime);
   const supabase = await createServerSupabaseClient();
   await updateSavedItineraryTargetTime(supabase, userId, itineraryId, parsed);
+}
+
+export async function updateItineraryTitleAction(
+  itineraryId: string,
+  title: unknown,
+): Promise<void> {
+  const userId = await requireUserId();
+  const parsedTitle = parseTitleInput(title);
+  const supabase = await createServerSupabaseClient();
+  await updateSavedItineraryTitle(supabase, userId, itineraryId, parsedTitle);
+  revalidatePath("/activity");
 }

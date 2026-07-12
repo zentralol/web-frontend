@@ -88,6 +88,25 @@ export async function updateSavedItineraryNote(
   }
 }
 
+export async function updateSavedItineraryTitle(
+  supabase: SupabaseClient,
+  userId: string,
+  itineraryId: string,
+  title: string,
+): Promise<void> {
+  await assertOwnedItinerary(supabase, userId, itineraryId);
+
+  const { error } = await supabase
+    .from(TABLE)
+    .update({ title })
+    .eq("id", itineraryId)
+    .eq("user_id", userId);
+
+  if (error) {
+    throw error;
+  }
+}
+
 /** Ensure the itinerary exists and belongs to the user, or throw. */
 async function assertOwnedItinerary(
   supabase: SupabaseClient,
