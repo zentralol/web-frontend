@@ -32,7 +32,7 @@ export function CrowdForecastSection({
   const selectedPoint = forecast[selectedIndex];
 
   return (
-    <section className="rounded-2xl border border-white/10 bg-white/[0.03] p-5">
+    <section className="flex h-full flex-col rounded-2xl border border-white/10 bg-white/[0.03] p-5">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <p className="text-xs font-bold uppercase tracking-[0.25em] text-accent/80">
@@ -97,7 +97,7 @@ export function CrowdForecastSection({
 
       {state === "ready" && forecast.length > 0 && (
         <>
-          <div className="relative mt-6 flex h-44 items-end justify-between gap-1 rounded-lg border border-white/5 bg-[#0d0e0f]/80 px-3 pb-3 pt-8">
+          <div className="relative mt-6 flex min-h-[11rem] flex-1 items-end justify-between gap-1 rounded-lg border border-white/5 bg-[#0d0e0f]/80 px-3 pb-3 pt-8">
             <div className="pointer-events-none absolute left-3 right-3 top-[20%] border-t border-white/5" />
             <div className="pointer-events-none absolute left-3 right-3 top-[50%] border-t border-white/5" />
             <div className="pointer-events-none absolute left-3 right-3 top-[80%] border-t border-white/5" />
