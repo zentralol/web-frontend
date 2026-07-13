@@ -1,6 +1,6 @@
 "use client";
 
-import { Clock, MapPin } from "lucide-react";
+import { MapPin } from "lucide-react";
 import Link from "next/link";
 import { spaceGrotesk } from "@/app/ui/fonts";
 import { buildRoutesHref } from "@/lib/attractions/buildRoutesHref";
@@ -112,13 +112,15 @@ export function TopLandmarksSection({
 
       {hasLandmarks && (
         <ul className="mt-5 space-y-3">
-          {landmarks.map((item) => (
+          {landmarks.map((item, index) => (
             <li
               key={item.attraction.id}
-              className="rounded-xl border border-white/5 bg-[#121314]/55 p-3.5"
+              className="rounded-xl border border-white/5 bg-[#121314]/55 p-3.5 transition-colors hover:border-white/10 hover:bg-[#121314]/80"
             >
               <div className="flex items-start gap-3">
-                <Clock className="mt-0.5 h-4 w-4 shrink-0 text-accent" aria-hidden />
+                <span className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full border border-accent/25 bg-accent/10 font-mono text-[10px] font-bold text-accent">
+                  {index + 1}
+                </span>
                 <div className="min-w-0 flex-1">
                   <div className="flex items-start justify-between gap-2">
                     <Link
