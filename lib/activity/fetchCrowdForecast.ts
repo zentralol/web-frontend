@@ -8,7 +8,12 @@ import {
   backendBaseUrl,
   buildApiUrl,
   normalizeBaseUrl,
+  parseApiError,
 } from "./predictionApi";
+
+const CROWD_FORECAST_FALLBACK_ERROR = "Could not load crowd forecast.";
+const CROWD_FORECAST_MANHATTAN_ERROR =
+  "Crowd forecast is only available in Manhattan.";
 
 export const FORECAST_HOURS = 8;
 export const FORECAST_LIMIT = 8;
@@ -59,19 +64,36 @@ export function buildHourlyForecastTargetTimes(
   );
 }
 
+type PredictionAtTimeData = {
+  targetTime: string;
+  score: number;
+  level: string;
+  period?: string;
+  confidence?: number;
+};
+
+type PredictionAtTimeResult =
+  | { ok: true; data: PredictionAtTimeData }
+  | { ok: false; payload: unknown };
+
+function crowdForecastErrorFromPayload(payload: unknown): string {
+  if (
+    payload &&
+    typeof payload === "object" &&
+    (payload as ApiErrorPayload).error?.code === "LOCATION_OUT_OF_COVERAGE"
+  ) {
+    return CROWD_FORECAST_MANHATTAN_ERROR;
+  }
+  return parseApiError(payload, CROWD_FORECAST_FALLBACK_ERROR);
+}
+
 async function fetchPredictionAtTime(
   lat: number,
   lng: number,
   targetTime: string,
   backendFetch: FetchLike,
   baseUrl: string,
-): Promise<{
-  targetTime: string;
-  score: number;
-  level: string;
-  period?: string;
-  confidence?: number;
-} | null> {
+): Promise<PredictionAtTimeResult> {
   const response = await backendFetch(buildApiUrl(baseUrl, "/predictions"), {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -86,7 +108,7 @@ async function fetchPredictionAtTime(
   const payload = (await response.json()) as PredictionPayload | ApiErrorPayload;
 
   if (!response.ok) {
-    return null;
+    return { ok: false, payload };
   }
 
   const prediction = (payload as PredictionPayload).data?.prediction;
@@ -94,15 +116,18 @@ async function fetchPredictionAtTime(
     prediction?.busynessScore == null ||
     !prediction.busynessLevel
   ) {
-    return null;
+    return { ok: false, payload };
   }
 
   return {
-    targetTime: prediction.targetTime ?? targetTime,
-    score: prediction.busynessScore,
-    level: prediction.busynessLevel,
-    period: prediction.period,
-    confidence: prediction.confidence,
+    ok: true,
+    data: {
+      targetTime: prediction.targetTime ?? targetTime,
+      score: prediction.busynessScore,
+      level: prediction.busynessLevel,
+      period: prediction.period,
+      confidence: prediction.confidence,
+    },
   };
 }
 
@@ -116,22 +141,33 @@ export async function fetchCrowdForecast(
     const now = new Date();
     const targetTimes = buildHourlyForecastTargetTimes(now, FORECAST_LIMIT);
 
-    const results = await Promise.all(
-      targetTimes.map((targetTime) =>
+    const firstResult = await fetchPredictionAtTime(
+      lat,
+      lng,
+      targetTimes[0],
+      backendFetch,
+      baseUrl,
+    );
+
+    if (!firstResult.ok) {
+      return {
+        forecast: [],
+        error: crowdForecastErrorFromPayload(firstResult.payload),
+      };
+    }
+
+    const restResults = await Promise.all(
+      targetTimes.slice(1).map((targetTime) =>
         fetchPredictionAtTime(lat, lng, targetTime, backendFetch, baseUrl),
       ),
     );
 
-    const successful = results.filter(
-      (item): item is NonNullable<typeof item> => item != null,
-    );
-
-    if (successful.length === 0) {
-      return {
-        forecast: [],
-        error: "Could not load crowd forecast.",
-      };
-    }
+    const successful = [
+      firstResult.data,
+      ...restResults
+        .filter((item): item is { ok: true; data: PredictionAtTimeData } => item.ok)
+        .map((item) => item.data),
+    ];
 
     const forecast: ForecastPoint[] = successful.map((item) => ({
       rawTimestamp: item.targetTime,
@@ -158,7 +194,7 @@ export async function fetchCrowdForecast(
   } catch {
     return {
       forecast: [],
-      error: "Could not load crowd forecast.",
+      error: CROWD_FORECAST_FALLBACK_ERROR,
     };
   }
 }
