@@ -3,33 +3,28 @@
 import { useCallback, useEffect, useState } from "react";
 import {
   APIProvider,
-  ControlPosition,
   Map,
-  MapControl,
   Marker,
-  useMap,
   useMapsLibrary,
   type MapMouseEvent,
 } from "@vis.gl/react-google-maps";
-import { LocateFixed, Loader2 } from "lucide-react";
 import { categoryMarkerColor } from "@/lib/attractions/categoryColors";
 import { resolveCategoryGroup } from "@/lib/attractions/categoryGroups";
 import type { Attraction } from "@/lib/attractions/types";
-import {
-  requestCurrentPosition,
-  type Coords,
-} from "@/lib/geo/requestCurrentPosition";
+import type { Coords } from "@/lib/geo/requestCurrentPosition";
 import { useAuthenticatedBackendFetch } from "@/lib/backend/useAuthenticatedBackendFetch";
 import { fetchLocationDetails } from "@/lib/map/fetchLocationDetails";
 import { fetchBusynessData } from "@/lib/map/fetchPredictions";
+import type { HeatmapPoint } from "@/lib/map/fetchHeatmap";
+import type { HeatmapTimeOption } from "@/lib/map/heatmapTimeOptions";
 import type { LocationSelectionState } from "@/lib/map/types";
 import FitAttractionBounds from "@/components/map/FitAttractionBounds";
+import HeatmapLayer from "@/components/map/HeatmapLayer";
+import MapControls from "@/components/map/MapControls";
 import PanToTarget from "@/components/map/PanToTarget";
 
 const API_KEY = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY;
 const USER_MARKER_COLOR = "#4285F4";
-const LOCATION_ERROR_MESSAGE =
-  "Couldn't get your location. Check location permissions.";
 
 type PendingSelection =
   | {
@@ -48,6 +43,14 @@ export type MapViewProps = {
   highlightedId: number | null;
   focusTarget: { lat: number; lng: number } | null;
   fitBoundsEnabled?: boolean;
+  heatmapEnabled: boolean;
+  heatmapLoading: boolean;
+  heatmapError: string | null;
+  heatmapPoints: HeatmapPoint[];
+  heatmapTargetTime: string;
+  heatmapTimeOptions: HeatmapTimeOption[];
+  onHeatmapToggle: () => void;
+  onHeatmapTimeChange: (targetTime: string) => void;
   onLoadingStart: (lat: number, lng: number) => void;
   onMapDragStart: () => void;
   onSelectionChange: (selection: LocationSelectionState) => void;
@@ -72,68 +75,6 @@ function UserMarker({ position }: { position: Coords }) {
         strokeWeight: 3,
       }}
     />
-  );
-}
-
-function MyLocationControl({
-  onLocate,
-}: {
-  onLocate: (coords: Coords) => void;
-}) {
-  const map = useMap();
-  const [locating, setLocating] = useState(false);
-  const [locationError, setLocationError] = useState<string | null>(null);
-
-  useEffect(() => {
-    if (!locationError) return;
-    const timer = window.setTimeout(() => setLocationError(null), 5000);
-    return () => window.clearTimeout(timer);
-  }, [locationError]);
-
-  const handleClick = async () => {
-    if (locating) return;
-    setLocating(true);
-    setLocationError(null);
-    try {
-      const coords = await requestCurrentPosition();
-      map?.panTo(coords);
-      map?.setZoom(15);
-      onLocate(coords);
-    } catch {
-      setLocationError(LOCATION_ERROR_MESSAGE);
-    } finally {
-      setLocating(false);
-    }
-  };
-
-  if (!map) return null;
-
-  return (
-    <MapControl position={ControlPosition.TOP_RIGHT}>
-      <div className="mr-3 mt-3 flex flex-col items-end gap-1">
-        <div className="overflow-hidden rounded-lg border border-white/10 bg-surface/90 shadow-lg">
-          <button
-            type="button"
-            aria-label="Locate me"
-            title="Locate me"
-            onClick={handleClick}
-            disabled={locating}
-            className="flex h-9 w-9 items-center justify-center text-white/70 transition-colors hover:bg-white/5 hover:text-accent disabled:cursor-not-allowed disabled:opacity-40"
-          >
-            {locating ? (
-              <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
-            ) : (
-              <LocateFixed className="h-4 w-4" aria-hidden />
-            )}
-          </button>
-        </div>
-        {locationError && (
-          <p className="max-w-[200px] rounded-lg border border-white/10 bg-surface/95 px-2 py-1 text-right text-[11px] text-[#ff3b30] shadow-lg">
-            {locationError}
-          </p>
-        )}
-      </div>
-    </MapControl>
   );
 }
 
@@ -169,6 +110,14 @@ function MapContent({
   highlightedId,
   focusTarget,
   fitBoundsEnabled = true,
+  heatmapEnabled,
+  heatmapLoading,
+  heatmapError,
+  heatmapPoints,
+  heatmapTargetTime,
+  heatmapTimeOptions,
+  onHeatmapToggle,
+  onHeatmapTimeChange,
   onLoadingStart,
   onMapDragStart,
   onSelectionChange,
@@ -329,9 +278,11 @@ function MapContent({
       defaultZoom={12}
       style={{ width: "100%", height: "100%" }}
       clickableIcons={false}
+      disableDefaultUI
       onClick={handleClick}
       onDragstart={onMapDragStart}
     >
+      <HeatmapLayer points={heatmapPoints} visible={heatmapEnabled} />
       <FitAttractionBounds
         attractions={attractions}
         enabled={fitBoundsEnabled && attractions.length > 0}
@@ -346,7 +297,16 @@ function MapContent({
         />
       ))}
       {userPosition ? <UserMarker position={userPosition} /> : null}
-      <MyLocationControl onLocate={handleLocate} />
+      <MapControls
+        heatmapEnabled={heatmapEnabled}
+        heatmapLoading={heatmapLoading}
+        heatmapError={heatmapError}
+        heatmapTargetTime={heatmapTargetTime}
+        heatmapTimeOptions={heatmapTimeOptions}
+        onHeatmapToggle={onHeatmapToggle}
+        onHeatmapTimeChange={onHeatmapTimeChange}
+        onLocate={handleLocate}
+      />
     </Map>
   );
 }
