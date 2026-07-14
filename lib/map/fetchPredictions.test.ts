@@ -169,6 +169,32 @@ describe("toForecastTimeLabel", () => {
     expect(toForecastTimeLabel("2026-07-10T16:30:00.000Z")).toBe("4:30 PM");
   });
 
+  test("mapForecastItems normalizes UTC timestamps to Manhattan before labeling", async () => {
+    const backendFetch = vi.fn(async () => ({
+      ok: true,
+      json: async () => ({
+        success: true,
+        data: {
+          forecast: [
+            {
+              timestamp: "2026-07-12T18:30:00.000Z",
+              busynessScore: 40,
+              busynessLevel: "moderate",
+            },
+          ],
+        },
+      }),
+    }));
+
+    const result = await fetchForecastSeries(40.758, -73.9855, 6, backendFetch);
+
+    expect(result.ok).toBe(true);
+    expect(result.forecast?.[0]?.rawTimestamp).toMatch(
+      /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}$/,
+    );
+    expect(result.forecast?.[0]?.rawTimestamp).not.toContain("Z");
+  });
+
   test("formats midnight as 12 AM", () => {
     expect(toForecastTimeLabel("2026-07-10T00:05:00")).toBe("12:05 AM");
   });

@@ -103,6 +103,13 @@ export function toForecastTimeLabel(isoLikeValue: string): string {
   return `${hour12}:${minute} ${suffix}`;
 }
 
+function normalizeForecastTimestamp(raw: string): string {
+  if (raw.includes("Z") || /[+-]\d{2}:\d{2}$/.test(raw)) {
+    return formatInNewYork(new Date(raw));
+  }
+  return raw;
+}
+
 function mapForecastItems(
   items: NonNullable<ForecastPayload["data"]>["forecast"],
 ): ForecastPoint[] {
@@ -114,7 +121,7 @@ function mapForecastItems(
         item.busynessLevel != null,
     )
     .map((item) => {
-      const rawTimestamp = item.timestamp as string;
+      const rawTimestamp = normalizeForecastTimestamp(item.timestamp as string);
       return {
         rawTimestamp,
         timestamp: toForecastTimeLabel(rawTimestamp),

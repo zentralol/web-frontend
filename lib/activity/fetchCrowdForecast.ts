@@ -2,8 +2,10 @@ import type { FetchLike } from "@/lib/backend/authenticatedFetch";
 import {
   fetchCurrentBusyness,
   fetchForecastSeries,
+  toForecastTimeLabel,
   type ForecastPoint,
 } from "@/lib/map/fetchPredictions";
+import { formatInNewYork } from "@/lib/time/manhattanTime";
 import { parseApiError } from "./predictionApi";
 
 const CROWD_FORECAST_FALLBACK_ERROR = "Could not load crowd forecast.";
@@ -48,34 +50,72 @@ export async function fetchCrowdForecast(
   backendFetch: FetchLike,
 ): Promise<CrowdForecastResult> {
   try {
-    const [currentResult, forecastResult] = await Promise.all([
-      fetchCurrentBusyness(lat, lng, backendFetch),
-      fetchForecastSeries(lat, lng, FORECAST_LIMIT, backendFetch),
-    ]);
+    const currentResult = await fetchCurrentBusyness(lat, lng, backendFetch);
 
-    if (!currentResult.ok && !forecastResult.ok) {
+    if (!currentResult.ok) {
+      if (
+        crowdForecastErrorFromPayload(currentResult.errorPayload) ===
+        CROWD_FORECAST_MANHATTAN_ERROR
+      ) {
+        return {
+          forecast: [],
+          error: CROWD_FORECAST_MANHATTAN_ERROR,
+        };
+      }
+
+      const forecastOnly = await fetchForecastSeries(
+        lat,
+        lng,
+        FORECAST_LIMIT,
+        backendFetch,
+      );
+
+      if (!forecastOnly.ok) {
+        return {
+          forecast: [],
+          error: crowdForecastErrorFromPayload(currentResult.errorPayload),
+        };
+      }
+
+      const forecast = forecastOnly.forecast ?? [];
       return {
-        forecast: [],
-        error: crowdForecastErrorFromPayload(currentResult.errorPayload),
+        forecast,
+        error:
+          forecast.length < FORECAST_LIMIT
+            ? "Some forecast windows could not be loaded."
+            : undefined,
       };
     }
 
-    const forecast = forecastResult.forecast ?? [];
+    const forecastResult = await fetchForecastSeries(
+      lat,
+      lng,
+      FORECAST_LIMIT - 1,
+      backendFetch,
+    );
+
+    const nowRaw = formatInNewYork(new Date());
+    const nowPoint: ForecastPoint = {
+      rawTimestamp: nowRaw,
+      timestamp: toForecastTimeLabel(nowRaw),
+      score: currentResult.busyness!.score,
+      level: currentResult.busyness!.level,
+    };
+
+    const futurePoints = forecastResult.forecast ?? [];
+    const forecast = [nowPoint, ...futurePoints].slice(0, FORECAST_LIMIT);
 
     return {
-      current: currentResult.ok ? currentResult.busyness : undefined,
+      current: currentResult.busyness,
       forecast,
-      error:
-        !currentResult.ok
-          ? crowdForecastErrorFromPayload(currentResult.errorPayload)
-          : !forecastResult.ok
-            ? parseApiError(
-                forecastResult.errorPayload,
-                "Some forecast windows could not be loaded.",
-              )
-            : forecast.length < FORECAST_LIMIT
-              ? "Some forecast windows could not be loaded."
-              : undefined,
+      error: !forecastResult.ok
+        ? parseApiError(
+            forecastResult.errorPayload,
+            "Some forecast windows could not be loaded.",
+          )
+        : forecast.length < FORECAST_LIMIT
+          ? "Some forecast windows could not be loaded."
+          : undefined,
     };
   } catch {
     return {

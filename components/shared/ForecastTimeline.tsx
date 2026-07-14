@@ -35,6 +35,7 @@ export function ForecastTimeline({
   const selectedIndex = controlledIndex ?? internalIndex;
   const selectedPoint = points[selectedIndex];
   const isCompact = variant === "compact";
+  const chartHeightClass = isCompact ? "h-[7rem]" : "h-[11rem]";
 
   const handleSelect = (index: number) => {
     if (!interactive) {
@@ -50,11 +51,14 @@ export function ForecastTimeline({
     return null;
   }
 
+  const columnClassName =
+    "group relative flex h-full min-w-0 flex-1 flex-col items-center";
+
   return (
     <>
       <div
-        className={`relative flex items-end justify-between gap-1 rounded-lg border border-white/5 bg-[#0d0e0f]/80 px-3 pb-3 ${
-          isCompact ? "mt-3 min-h-[7rem] pt-5" : "min-h-[11rem] pt-8"
+        className={`relative flex w-full ${chartHeightClass} items-stretch justify-between gap-1 rounded-lg border border-white/5 bg-[#0d0e0f]/80 px-3 pb-3 ${
+          isCompact ? "mt-3 pt-2" : "flex-1 pt-8"
         }`}
       >
         {showGrid && (
@@ -70,7 +74,7 @@ export function ForecastTimeline({
           const barHeight = `${Math.min(Math.max(point.score, 4), 100)}%`;
           const barClassName = isCompact ? "max-w-6" : "max-w-10";
 
-          const bar = (
+          const columnContent = (
             <>
               <div className="flex min-h-0 w-full flex-1 items-end justify-center">
                 <div
@@ -109,22 +113,19 @@ export function ForecastTimeline({
           if (interactive) {
             return (
               <button
-                key={`${point.rawTimestamp}-${point.score}`}
+                key={`${point.rawTimestamp}-${index}`}
                 type="button"
                 onClick={() => handleSelect(index)}
-                className="group relative flex h-full min-w-0 flex-1 flex-col items-center"
+                className={columnClassName}
               >
-                {bar}
+                {columnContent}
               </button>
             );
           }
 
           return (
-            <div
-              key={`${point.rawTimestamp}-${point.score}`}
-              className="group relative flex h-full min-w-0 flex-1 flex-col items-center"
-            >
-              {bar}
+            <div key={`${point.rawTimestamp}-${index}`} className={columnClassName}>
+              {columnContent}
             </div>
           );
         })}
