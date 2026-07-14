@@ -17,7 +17,11 @@ import { fetchAttractions } from "@/lib/attractions/fetchAttractions";
 import type { Attraction } from "@/lib/attractions/types";
 import { requestCurrentPosition } from "@/lib/geo/requestCurrentPosition";
 import { fetchHeatmap, type HeatmapPoint } from "@/lib/map/fetchHeatmap";
-import { useLiveHeatmapTimeOptions } from "@/lib/map/useLiveHeatmapTimeOptions";
+import {
+  HEATMAP_OPTIONS_REFRESH_MS,
+  useLiveHeatmapTimeOptions,
+} from "@/lib/map/useLiveHeatmapTimeOptions";
+import { buildHeatmapTimeOptions } from "@/lib/map/heatmapTimeOptions";
 import {
   readHeatmapEnabled,
   writeHeatmapEnabled,
@@ -73,17 +77,16 @@ export default function MapWorkspace({
   const [fitBoundsEnabled, setFitBoundsEnabled] = useState(true);
   const [heatmapEnabled, setHeatmapEnabled] = useState(false);
   const [selectedHeatmapTimeId, setSelectedHeatmapTimeId] = useState("now");
+  const [heatmapTargetTime, setHeatmapTargetTime] = useState(() =>
+    formatInNewYork(new Date()),
+  );
   const [heatmapPoints, setHeatmapPoints] = useState<HeatmapPoint[]>([]);
   const [heatmapLoading, setHeatmapLoading] = useState(false);
   const [heatmapError, setHeatmapError] = useState<string | null>(null);
-  const { options: heatmapTimeOptions, refreshOptions: refreshHeatmapTimeOptions } =
-    useLiveHeatmapTimeOptions(heatmapEnabled);
-  const heatmapTargetTime = useMemo(() => {
-    const selected = heatmapTimeOptions.find(
-      (option) => option.id === selectedHeatmapTimeId,
-    );
-    return selected?.targetTime ?? formatInNewYork(new Date());
-  }, [heatmapTimeOptions, selectedHeatmapTimeId]);
+  const {
+    options: heatmapTimeOptions,
+    refreshOptions: refreshHeatmapTimeOptions,
+  } = useLiveHeatmapTimeOptions(heatmapEnabled);
   const lastStableSelectionRef = useRef<LocationSelectionState>({
     status: "idle",
   });
@@ -179,10 +182,26 @@ export default function MapWorkspace({
 
   useEffect(() => {
     const frame = requestAnimationFrame(() => {
-      setHeatmapEnabled(readHeatmapEnabled());
+      const enabled = readHeatmapEnabled();
+      setHeatmapEnabled(enabled);
+      if (enabled) {
+        setHeatmapTargetTime(formatInNewYork(new Date()));
+      }
     });
     return () => cancelAnimationFrame(frame);
   }, []);
+
+  useEffect(() => {
+    if (!heatmapEnabled || selectedHeatmapTimeId !== "now") {
+      return;
+    }
+
+    const intervalId = window.setInterval(() => {
+      setHeatmapTargetTime(formatInNewYork(new Date()));
+    }, HEATMAP_OPTIONS_REFRESH_MS);
+
+    return () => window.clearInterval(intervalId);
+  }, [heatmapEnabled, selectedHeatmapTimeId]);
 
   useEffect(() => {
     if (!heatmapEnabled) {
@@ -226,13 +245,26 @@ export default function MapWorkspace({
     setHeatmapEnabled(next);
     if (!next) {
       setHeatmapLoading(false);
+    } else {
+      const options = buildHeatmapTimeOptions();
+      const selected = options.find((option) => option.id === selectedHeatmapTimeId);
+      if (selected) {
+        setHeatmapTargetTime(selected.targetTime);
+      }
     }
     writeHeatmapEnabled(next);
-  }, [heatmapEnabled]);
+  }, [heatmapEnabled, selectedHeatmapTimeId]);
 
-  const handleHeatmapTimeChange = useCallback((optionId: string) => {
-    setSelectedHeatmapTimeId(optionId);
-  }, []);
+  const handleHeatmapTimeChange = useCallback(
+    (optionId: string) => {
+      setSelectedHeatmapTimeId(optionId);
+      const selected = heatmapTimeOptions.find((option) => option.id === optionId);
+      if (selected) {
+        setHeatmapTargetTime(selected.targetTime);
+      }
+    },
+    [heatmapTimeOptions],
+  );
 
   const handleHeatmapTimeSelectFocus = useCallback(() => {
     refreshHeatmapTimeOptions();

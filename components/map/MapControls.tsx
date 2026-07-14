@@ -102,8 +102,7 @@ export default function MapControls({
                 value={selectedHeatmapTimeId}
                 onChange={(event) => onHeatmapTimeChange(event.target.value)}
                 onFocus={onHeatmapTimeSelectFocus}
-                disabled={heatmapLoading}
-                className="w-full min-w-[168px] rounded border border-white/10 bg-surface px-2 py-1 text-[11px] text-white/80 outline-none focus:border-accent/50 disabled:opacity-50"
+                className="w-full min-w-[168px] rounded border border-white/10 bg-surface px-2 py-1 text-[11px] text-white/80 outline-none focus:border-accent/50"
               >
                 {heatmapTimeOptions.map((option) => (
                   <option key={option.id} value={option.id}>
