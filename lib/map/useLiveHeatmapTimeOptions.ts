@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   buildHeatmapTimeOptions,
   type HeatmapTimeOption,
@@ -10,12 +10,10 @@ export function useLiveHeatmapTimeOptions(heatmapEnabled: boolean): {
   options: HeatmapTimeOption[];
   refreshOptions: () => void;
 } {
-  const [options, setOptions] = useState<HeatmapTimeOption[]>(() =>
-    buildHeatmapTimeOptions(),
-  );
+  const [refreshTick, setRefreshTick] = useState(0);
 
   const refreshOptions = useCallback(() => {
-    setOptions(buildHeatmapTimeOptions(new Date()));
+    setRefreshTick((tick) => tick + 1);
   }, []);
 
   useEffect(() => {
@@ -23,10 +21,14 @@ export function useLiveHeatmapTimeOptions(heatmapEnabled: boolean): {
       return;
     }
 
-    refreshOptions();
     const intervalId = window.setInterval(refreshOptions, HEATMAP_OPTIONS_REFRESH_MS);
     return () => window.clearInterval(intervalId);
   }, [heatmapEnabled, refreshOptions]);
+
+  const options = useMemo(
+    () => buildHeatmapTimeOptions(new Date()),
+    [heatmapEnabled, refreshTick],
+  );
 
   return { options, refreshOptions };
 }
