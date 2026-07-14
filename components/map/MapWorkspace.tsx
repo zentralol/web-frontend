@@ -15,11 +15,20 @@ import {
 import type { CategoryGroup } from "@/lib/attractions/categoryGroups";
 import { fetchAttractions } from "@/lib/attractions/fetchAttractions";
 import type { Attraction } from "@/lib/attractions/types";
+import { useAuthenticatedBackendFetch } from "@/lib/backend/useAuthenticatedBackendFetch";
 import { requestCurrentPosition } from "@/lib/geo/requestCurrentPosition";
+import { fetchHeatmap, type HeatmapPoint } from "@/lib/map/fetchHeatmap";
+import { buildHeatmapTimeOptions } from "@/lib/map/heatmapTimeOptions";
+import {
+  readHeatmapEnabled,
+  writeHeatmapEnabled,
+} from "@/lib/map/heatmapPreferences";
 import type { TravelInterest } from "@/lib/onboarding/types";
 import type { LocationSelectionState } from "@/lib/map/types";
+import { formatInNewYork } from "@/lib/time/manhattanTime";
 
 const DRAG_THRESHOLD_PX = 5;
+const HEATMAP_FETCH_DEBOUNCE_MS = 300;
 
 type PointerSession = {
   pointerId: number;
@@ -39,6 +48,7 @@ export default function MapWorkspace({
   initialAttractions = [],
   initialLoadState = "ready",
 }: MapWorkspaceProps) {
+  const backendFetch = useAuthenticatedBackendFetch();
   const searchParams = useSearchParams();
   const [attractions, setAttractions] = useState<Attraction[]>(initialAttractions);
   const [loadState, setLoadState] = useState<AttractionsLoadState>(initialLoadState);
@@ -63,6 +73,14 @@ export default function MapWorkspace({
     status: "idle",
   });
   const [fitBoundsEnabled, setFitBoundsEnabled] = useState(true);
+  const [heatmapEnabled, setHeatmapEnabled] = useState(false);
+  const [heatmapTargetTime, setHeatmapTargetTime] = useState(() =>
+    formatInNewYork(new Date()),
+  );
+  const [heatmapPoints, setHeatmapPoints] = useState<HeatmapPoint[]>([]);
+  const [heatmapLoading, setHeatmapLoading] = useState(false);
+  const [heatmapError, setHeatmapError] = useState<string | null>(null);
+  const heatmapTimeOptions = useMemo(() => buildHeatmapTimeOptions(), []);
   const lastStableSelectionRef = useRef<LocationSelectionState>({
     status: "idle",
   });
@@ -155,6 +173,62 @@ export default function MapWorkspace({
     },
     [attractions, loadState],
   );
+
+  useEffect(() => {
+    const frame = requestAnimationFrame(() => {
+      setHeatmapEnabled(readHeatmapEnabled());
+    });
+    return () => cancelAnimationFrame(frame);
+  }, []);
+
+  useEffect(() => {
+    if (!heatmapEnabled) {
+      return;
+    }
+
+    let cancelled = false;
+    const timer = window.setTimeout(() => {
+      setHeatmapLoading(true);
+      setHeatmapError(null);
+
+      void (async () => {
+        try {
+          const data = await fetchHeatmap(heatmapTargetTime, backendFetch);
+          if (cancelled) return;
+          setHeatmapPoints(data.points);
+        } catch (error) {
+          if (cancelled) return;
+          setHeatmapPoints([]);
+          setHeatmapError(
+            error instanceof Error
+              ? error.message
+              : "Could not load crowd heatmap.",
+          );
+        } finally {
+          if (!cancelled) {
+            setHeatmapLoading(false);
+          }
+        }
+      })();
+    }, HEATMAP_FETCH_DEBOUNCE_MS);
+
+    return () => {
+      cancelled = true;
+      window.clearTimeout(timer);
+    };
+  }, [heatmapEnabled, heatmapTargetTime, backendFetch]);
+
+  const handleHeatmapToggle = useCallback(() => {
+    setHeatmapEnabled((current) => {
+      const next = !current;
+      writeHeatmapEnabled(next);
+      return next;
+    });
+  }, []);
+
+  const handleHeatmapTimeChange = useCallback((targetTime: string) => {
+    setHeatmapTargetTime(targetTime);
+  }, []);
 
   useEffect(() => {
     if (selection.status !== "loading") {
@@ -289,6 +363,14 @@ export default function MapWorkspace({
           highlightedId={highlightedId}
           focusTarget={focusTarget}
           fitBoundsEnabled={fitBoundsEnabled}
+          heatmapEnabled={heatmapEnabled}
+          heatmapLoading={heatmapLoading}
+          heatmapError={heatmapError}
+          heatmapPoints={heatmapPoints}
+          heatmapTargetTime={heatmapTargetTime}
+          heatmapTimeOptions={heatmapTimeOptions}
+          onHeatmapToggle={handleHeatmapToggle}
+          onHeatmapTimeChange={handleHeatmapTimeChange}
           onLoadingStart={handleLoadingStart}
           onMapDragStart={handleMapDragStart}
           onSelectionChange={setSelection}
