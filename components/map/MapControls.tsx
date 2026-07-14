@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { ControlPosition, MapControl, useMap } from "@vis.gl/react-google-maps";
+import { useMap } from "@vis.gl/react-google-maps";
 import { Layers, Loader2, LocateFixed } from "lucide-react";
 import {
   requestCurrentPosition,
@@ -59,29 +59,36 @@ export default function MapControls({
     }
   };
 
-  if (!map) return null;
+  const stopMapClick = (event: React.SyntheticEvent) => {
+    event.stopPropagation();
+  };
 
   return (
-    <MapControl position={ControlPosition.TOP_RIGHT}>
-      <div className="mr-3 mt-3 flex flex-col items-end gap-1">
-        <div className="flex flex-col overflow-hidden rounded-lg border border-white/10 bg-surface/90 shadow-lg">
+    <div
+      className="pointer-events-none absolute inset-0 z-20"
+      onPointerDown={stopMapClick}
+      onClick={stopMapClick}
+    >
+      <div className="pointer-events-auto absolute right-3 top-3 flex flex-col items-end gap-1">
+        <div className="flex flex-col overflow-hidden rounded-lg border border-white/10 bg-surface/95 shadow-lg backdrop-blur-sm">
           <button
             type="button"
             aria-label="Toggle crowd heatmap"
             aria-pressed={heatmapEnabled}
             title="Crowd heatmap"
             onClick={onHeatmapToggle}
-            className={`flex h-9 w-9 items-center justify-center transition-colors hover:bg-white/5 hover:text-accent ${
+            className={`flex h-9 items-center gap-2 px-3 text-[11px] font-semibold uppercase tracking-wide transition-colors hover:bg-white/5 ${
               heatmapEnabled
                 ? "bg-accent/15 text-accent"
-                : "text-white/70"
+                : "text-white/80"
             }`}
           >
             {heatmapLoading ? (
-              <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
+              <Loader2 className="h-4 w-4 shrink-0 animate-spin" aria-hidden />
             ) : (
-              <Layers className="h-4 w-4" aria-hidden />
+              <Layers className="h-4 w-4 shrink-0" aria-hidden />
             )}
+            <span>Heatmap</span>
           </button>
           {heatmapEnabled && (
             <div className="border-t border-white/10 px-2 py-1.5">
@@ -93,7 +100,7 @@ export default function MapControls({
                 value={heatmapTargetTime}
                 onChange={(event) => onHeatmapTimeChange(event.target.value)}
                 disabled={heatmapLoading}
-                className="w-full min-w-[148px] rounded border border-white/10 bg-surface/95 px-2 py-1 text-[11px] text-white/80 outline-none focus:border-accent/50 disabled:opacity-50"
+                className="w-full min-w-[168px] rounded border border-white/10 bg-surface px-2 py-1 text-[11px] text-white/80 outline-none focus:border-accent/50 disabled:opacity-50"
               >
                 {heatmapTimeOptions.map((option) => (
                   <option key={option.id} value={option.targetTime}>
@@ -108,8 +115,8 @@ export default function MapControls({
             aria-label="Locate me"
             title="Locate me"
             onClick={() => void handleLocate()}
-            disabled={locating}
-            className="flex h-9 w-9 items-center justify-center border-t border-white/10 text-white/70 transition-colors hover:bg-white/5 hover:text-accent disabled:cursor-not-allowed disabled:opacity-40"
+            disabled={locating || !map}
+            className="flex h-9 w-full items-center justify-center border-t border-white/10 text-white/80 transition-colors hover:bg-white/5 hover:text-accent disabled:cursor-not-allowed disabled:opacity-40"
           >
             {locating ? (
               <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
@@ -129,6 +136,6 @@ export default function MapControls({
           </p>
         )}
       </div>
-    </MapControl>
+    </div>
   );
 }
