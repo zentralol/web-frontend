@@ -2,12 +2,12 @@
 
 import { useEffect, useRef } from "react";
 import { useMap } from "@vis.gl/react-google-maps";
-import { cellToBoundary } from "h3-js";
 import {
   HEATMAP_FILL_OPACITY,
   heatmapFillColor,
 } from "@/lib/map/heatmapColors";
 import type { HeatmapPoint } from "@/lib/map/fetchHeatmap";
+import { h3CellToPolygonPaths } from "@/lib/map/h3PolygonPaths";
 
 type HeatmapLayerProps = {
   points: HeatmapPoint[];
@@ -34,10 +34,7 @@ export default function HeatmapLayer({ points, visible }: HeatmapLayerProps) {
     clearPolygons();
 
     const polygons = points.map((point) => {
-      const paths = cellToBoundary(point.h3Cell, true).map(([lat, lng]) => ({
-        lat,
-        lng,
-      }));
+      const paths = h3CellToPolygonPaths(point.h3Cell);
 
       return new google.maps.Polygon({
         paths,
