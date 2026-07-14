@@ -47,10 +47,11 @@ export type MapViewProps = {
   heatmapLoading: boolean;
   heatmapError: string | null;
   heatmapPoints: HeatmapPoint[];
-  heatmapTargetTime: string;
+  selectedHeatmapTimeId: string;
   heatmapTimeOptions: HeatmapTimeOption[];
   onHeatmapToggle: () => void;
-  onHeatmapTimeChange: (targetTime: string) => void;
+  onHeatmapTimeChange: (optionId: string) => void;
+  onHeatmapTimeSelectFocus: () => void;
   onLoadingStart: (lat: number, lng: number) => void;
   onMapDragStart: () => void;
   onSelectionChange: (selection: LocationSelectionState) => void;
@@ -114,10 +115,11 @@ function MapContent({
   heatmapLoading,
   heatmapError,
   heatmapPoints,
-  heatmapTargetTime,
+  selectedHeatmapTimeId,
   heatmapTimeOptions,
   onHeatmapToggle,
   onHeatmapTimeChange,
+  onHeatmapTimeSelectFocus,
   onLoadingStart,
   onMapDragStart,
   onSelectionChange,
@@ -301,10 +303,11 @@ function MapContent({
         heatmapEnabled={heatmapEnabled}
         heatmapLoading={heatmapLoading}
         heatmapError={heatmapError}
-        heatmapTargetTime={heatmapTargetTime}
+        selectedHeatmapTimeId={selectedHeatmapTimeId}
         heatmapTimeOptions={heatmapTimeOptions}
         onHeatmapToggle={onHeatmapToggle}
         onHeatmapTimeChange={onHeatmapTimeChange}
+        onHeatmapTimeSelectFocus={onHeatmapTimeSelectFocus}
         onLocate={handleLocate}
       />
     </Map>

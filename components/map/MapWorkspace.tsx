@@ -17,7 +17,7 @@ import { fetchAttractions } from "@/lib/attractions/fetchAttractions";
 import type { Attraction } from "@/lib/attractions/types";
 import { requestCurrentPosition } from "@/lib/geo/requestCurrentPosition";
 import { fetchHeatmap, type HeatmapPoint } from "@/lib/map/fetchHeatmap";
-import { buildHeatmapTimeOptions } from "@/lib/map/heatmapTimeOptions";
+import { useLiveHeatmapTimeOptions } from "@/lib/map/useLiveHeatmapTimeOptions";
 import {
   readHeatmapEnabled,
   writeHeatmapEnabled,
@@ -72,13 +72,18 @@ export default function MapWorkspace({
   });
   const [fitBoundsEnabled, setFitBoundsEnabled] = useState(true);
   const [heatmapEnabled, setHeatmapEnabled] = useState(false);
-  const [heatmapTargetTime, setHeatmapTargetTime] = useState(() =>
-    formatInNewYork(new Date()),
-  );
+  const [selectedHeatmapTimeId, setSelectedHeatmapTimeId] = useState("now");
   const [heatmapPoints, setHeatmapPoints] = useState<HeatmapPoint[]>([]);
   const [heatmapLoading, setHeatmapLoading] = useState(false);
   const [heatmapError, setHeatmapError] = useState<string | null>(null);
-  const heatmapTimeOptions = useMemo(() => buildHeatmapTimeOptions(), []);
+  const { options: heatmapTimeOptions, refreshOptions: refreshHeatmapTimeOptions } =
+    useLiveHeatmapTimeOptions(heatmapEnabled);
+  const heatmapTargetTime = useMemo(() => {
+    const selected = heatmapTimeOptions.find(
+      (option) => option.id === selectedHeatmapTimeId,
+    );
+    return selected?.targetTime ?? formatInNewYork(new Date());
+  }, [heatmapTimeOptions, selectedHeatmapTimeId]);
   const lastStableSelectionRef = useRef<LocationSelectionState>({
     status: "idle",
   });
@@ -225,9 +230,13 @@ export default function MapWorkspace({
     writeHeatmapEnabled(next);
   }, [heatmapEnabled]);
 
-  const handleHeatmapTimeChange = useCallback((targetTime: string) => {
-    setHeatmapTargetTime(targetTime);
+  const handleHeatmapTimeChange = useCallback((optionId: string) => {
+    setSelectedHeatmapTimeId(optionId);
   }, []);
+
+  const handleHeatmapTimeSelectFocus = useCallback(() => {
+    refreshHeatmapTimeOptions();
+  }, [refreshHeatmapTimeOptions]);
 
   useEffect(() => {
     if (selection.status !== "loading") {
@@ -366,10 +375,11 @@ export default function MapWorkspace({
           heatmapLoading={heatmapLoading}
           heatmapError={heatmapError}
           heatmapPoints={heatmapPoints}
-          heatmapTargetTime={heatmapTargetTime}
+          selectedHeatmapTimeId={selectedHeatmapTimeId}
           heatmapTimeOptions={heatmapTimeOptions}
           onHeatmapToggle={handleHeatmapToggle}
           onHeatmapTimeChange={handleHeatmapTimeChange}
+          onHeatmapTimeSelectFocus={handleHeatmapTimeSelectFocus}
           onLoadingStart={handleLoadingStart}
           onMapDragStart={handleMapDragStart}
           onSelectionChange={setSelection}

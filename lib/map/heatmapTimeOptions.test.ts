@@ -16,4 +16,12 @@ describe("buildHeatmapTimeOptions", () => {
     expect(options[8].id).toBe("future-8");
     expect(options[0].targetTime).toMatch(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}$/);
   });
+
+  test("preserves non-zero minutes in future hour labels", () => {
+    const now = new Date("2026-07-10T19:24:00.000Z");
+    const options = buildHeatmapTimeOptions(now);
+
+    expect(options[1].label).toBe("In 1 hour · 4:24 PM");
+    expect(options[2].label).toBe("In 2 hours · 5:24 PM");
+  });
 });
