@@ -7,7 +7,7 @@ import {
 } from "@/lib/activity/predictionApi";
 
 export const HEATMAP_LIMIT = 524;
-export const HEATMAP_SOURCE = "database";
+export const HEATMAP_SOURCE = "auto";
 
 export type HeatmapPoint = {
   h3Cell: string;
