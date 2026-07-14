@@ -1,19 +1,15 @@
-import { describe, expect, test, vi } from "vitest";
-import {
-  fetchHeatmap,
-  HEATMAP_LIMIT,
-  HEATMAP_SOURCE,
-} from "./fetchHeatmap";
+import { describe, expect, test, vi, beforeEach, afterEach } from "vitest";
+import { fetchHeatmap, HEATMAP_LIMIT } from "./fetchHeatmap";
 
 describe("fetchHeatmap", () => {
-  test("requests auto-sourced heatmap with full grid limit", async () => {
-    const backendFetch = vi.fn(async () => ({
-      ok: true,
-      json: async () => ({
-        success: true,
-        data: {
+  beforeEach(() => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => ({
+        ok: true,
+        json: async () => ({
           targetTime: "2026-07-14T10:30:00",
-          source: "ml_fastapi",
+          source: "heatmap_predictions",
           points: [
             {
               h3Cell: "892a100d2c3ffff",
@@ -27,43 +23,41 @@ describe("fetchHeatmap", () => {
               source: "ml_fastapi",
             },
           ],
-        },
-      }),
-    }));
-
-    const result = await fetchHeatmap(
-      "2026-07-14T10:30:00",
-      backendFetch,
-      "http://localhost:3000",
-    );
-
-    expect(result.points).toHaveLength(1);
-    expect(result.points[0].h3Cell).toBe("892a100d2c3ffff");
-    expect(result.source).toBe("ml_fastapi");
-
-    const [url] = backendFetch.mock.calls[0];
-    expect(String(url)).toContain("/api/v1/map/heatmap");
-    expect(String(url)).toContain(`limit=${HEATMAP_LIMIT}`);
-    expect(String(url)).toContain(`source=${HEATMAP_SOURCE}`);
-    expect(String(url)).toContain(
-      "targetTime=2026-07-14T10%3A30%3A00",
+        }),
+      })),
     );
   });
 
-  test("throws parsed API error message on failure", async () => {
-    const backendFetch = vi.fn(async () => ({
-      ok: false,
-      json: async () => ({
-        success: false,
-        error: {
-          code: "INTERNAL_ERROR",
-          message: "Heatmap data query failed",
-        },
-      }),
-    }));
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
 
-    await expect(
-      fetchHeatmap("2026-07-14T10:30:00", backendFetch),
-    ).rejects.toThrow("Heatmap data query failed");
+  test("requests the Next.js heatmap API with full grid limit", async () => {
+    const result = await fetchHeatmap("2026-07-14T10:30:00");
+
+    expect(result.points).toHaveLength(1);
+    expect(result.points[0].h3Cell).toBe("892a100d2c3ffff");
+    expect(result.source).toBe("heatmap_predictions");
+
+    const [url] = vi.mocked(fetch).mock.calls[0];
+    expect(String(url)).toContain("/api/map/heatmap");
+    expect(String(url)).toContain(`limit=${HEATMAP_LIMIT}`);
+    expect(String(url)).toContain("targetTime=2026-07-14T10%3A30%3A00");
+  });
+
+  test("throws parsed API error message on failure", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => ({
+        ok: false,
+        json: async () => ({
+          error: "Could not load crowd heatmap.",
+        }),
+      })),
+    );
+
+    await expect(fetchHeatmap("2026-07-14T10:30:00")).rejects.toThrow(
+      "Could not load crowd heatmap.",
+    );
   });
 });

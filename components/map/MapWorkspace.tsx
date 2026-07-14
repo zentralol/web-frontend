@@ -15,7 +15,6 @@ import {
 import type { CategoryGroup } from "@/lib/attractions/categoryGroups";
 import { fetchAttractions } from "@/lib/attractions/fetchAttractions";
 import type { Attraction } from "@/lib/attractions/types";
-import { useAuthenticatedBackendFetch } from "@/lib/backend/useAuthenticatedBackendFetch";
 import { requestCurrentPosition } from "@/lib/geo/requestCurrentPosition";
 import { fetchHeatmap, type HeatmapPoint } from "@/lib/map/fetchHeatmap";
 import { buildHeatmapTimeOptions } from "@/lib/map/heatmapTimeOptions";
@@ -48,7 +47,6 @@ export default function MapWorkspace({
   initialAttractions = [],
   initialLoadState = "ready",
 }: MapWorkspaceProps) {
-  const backendFetch = useAuthenticatedBackendFetch();
   const searchParams = useSearchParams();
   const [attractions, setAttractions] = useState<Attraction[]>(initialAttractions);
   const [loadState, setLoadState] = useState<AttractionsLoadState>(initialLoadState);
@@ -193,7 +191,7 @@ export default function MapWorkspace({
 
       void (async () => {
         try {
-          const data = await fetchHeatmap(heatmapTargetTime, backendFetch);
+          const data = await fetchHeatmap(heatmapTargetTime);
           if (cancelled) return;
           setHeatmapPoints(data.points);
         } catch (error) {
@@ -216,7 +214,7 @@ export default function MapWorkspace({
       cancelled = true;
       window.clearTimeout(timer);
     };
-  }, [heatmapEnabled, heatmapTargetTime, backendFetch]);
+  }, [heatmapEnabled, heatmapTargetTime]);
 
   const handleHeatmapToggle = useCallback(() => {
     setHeatmapEnabled((current) => {

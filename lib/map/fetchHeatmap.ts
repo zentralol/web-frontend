@@ -1,13 +1,4 @@
-import type { FetchLike } from "@/lib/backend/authenticatedFetch";
-import {
-  backendBaseUrl,
-  buildApiUrl,
-  normalizeBaseUrl,
-  parseApiError,
-} from "@/lib/activity/predictionApi";
-
 export const HEATMAP_LIMIT = 524;
-export const HEATMAP_SOURCE = "auto";
 
 export type HeatmapPoint = {
   h3Cell: string;
@@ -25,17 +16,11 @@ export type HeatmapPoint = {
   source: string;
 };
 
-type HeatmapPayload = {
-  success?: boolean;
-  data?: {
-    targetTime?: string;
-    source?: string;
-    points?: HeatmapPoint[];
-  };
-  error?: {
-    code?: string;
-    message?: string;
-  };
+type HeatmapResponse = {
+  targetTime?: string;
+  source?: string;
+  points?: HeatmapPoint[];
+  error?: string;
 };
 
 export type HeatmapData = {
@@ -44,33 +29,26 @@ export type HeatmapData = {
   points: HeatmapPoint[];
 };
 
-export async function fetchHeatmap(
-  targetTime: string,
-  backendFetch: FetchLike,
-  baseUrl: string = backendBaseUrl,
-): Promise<HeatmapData> {
+export async function fetchHeatmap(targetTime: string): Promise<HeatmapData> {
   const params = new URLSearchParams({
     limit: String(HEATMAP_LIMIT),
-    source: HEATMAP_SOURCE,
     targetTime,
   });
-  const url = buildApiUrl(
-    normalizeBaseUrl(baseUrl),
-    `/map/heatmap?${params.toString()}`,
-  );
+  const response = await fetch(`/api/map/heatmap?${params.toString()}`);
 
-  const response = await backendFetch(url);
-  const payload = (await response.json()) as HeatmapPayload;
+  const payload = (await response.json()) as HeatmapResponse;
 
-  if (!response.ok || !payload.success) {
-    throw new Error(
-      parseApiError(payload, "Could not load crowd heatmap."),
-    );
+  if (!response.ok) {
+    throw new Error(payload.error ?? "Could not load crowd heatmap.");
+  }
+
+  if (!Array.isArray(payload.points)) {
+    throw new Error(payload.error ?? "Could not load crowd heatmap.");
   }
 
   return {
-    targetTime: payload.data?.targetTime ?? targetTime,
-    source: payload.data?.source ?? HEATMAP_SOURCE,
-    points: payload.data?.points ?? [],
+    targetTime: payload.targetTime ?? targetTime,
+    source: payload.source ?? "heatmap_predictions",
+    points: payload.points,
   };
 }
