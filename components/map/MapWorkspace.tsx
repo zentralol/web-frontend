@@ -217,12 +217,13 @@ export default function MapWorkspace({
   }, [heatmapEnabled, heatmapTargetTime]);
 
   const handleHeatmapToggle = useCallback(() => {
-    setHeatmapEnabled((current) => {
-      const next = !current;
-      writeHeatmapEnabled(next);
-      return next;
-    });
-  }, []);
+    const next = !heatmapEnabled;
+    setHeatmapEnabled(next);
+    if (!next) {
+      setHeatmapLoading(false);
+    }
+    writeHeatmapEnabled(next);
+  }, [heatmapEnabled]);
 
   const handleHeatmapTimeChange = useCallback((targetTime: string) => {
     setHeatmapTargetTime(targetTime);
