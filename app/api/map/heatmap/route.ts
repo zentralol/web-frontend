@@ -1,5 +1,9 @@
 import { rowsToHeatmapPoints } from "@/lib/map/heatmapMappers";
-import { listHeatmapPredictions } from "@/lib/map/heatmapQueries";
+import {
+  listDistinctHeatmapTargetTimes,
+  listHeatmapPredictions,
+} from "@/lib/map/heatmapQueries";
+import { resolveHeatmapTargetTime } from "@/lib/map/heatmapTargetTimeResolve";
 import { HEATMAP_LIMIT } from "@/lib/map/fetchHeatmap";
 import { logger } from "@/lib/logger";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
@@ -30,10 +34,18 @@ export async function GET(request: Request) {
 
   try {
     const supabase = await createServerSupabaseClient();
-    const rows = await listHeatmapPredictions(supabase, targetTime, limit);
+    const distinctTargetTimes = await listDistinctHeatmapTargetTimes(supabase);
+    const resolvedTargetTime = resolveHeatmapTargetTime(
+      targetTime,
+      distinctTargetTimes,
+    );
+    const rows = resolvedTargetTime
+      ? await listHeatmapPredictions(supabase, resolvedTargetTime, limit)
+      : [];
 
     return NextResponse.json({
       targetTime,
+      resolvedTargetTime,
       source: "heatmap_predictions",
       points: rowsToHeatmapPoints(rows),
     });

@@ -21,3 +21,18 @@ export async function listHeatmapPredictions(
 
   return (data as HeatmapPredictionRow[] | null) ?? [];
 }
+
+export async function listDistinctHeatmapTargetTimes(
+  supabase: SupabaseClient,
+): Promise<string[]> {
+  const { data, error } = await supabase
+    .from("heatmap_predictions")
+    .select("target_time");
+
+  if (error) {
+    throw error;
+  }
+
+  const rows = (data as Array<{ target_time: string }> | null) ?? [];
+  return [...new Set(rows.map((row) => row.target_time))].sort();
+}
