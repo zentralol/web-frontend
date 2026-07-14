@@ -1,4 +1,5 @@
 import { auth, currentUser } from "@clerk/nextjs/server";
+import Link from "next/link";
 import { redirect } from "next/navigation";
 import HomeExploreSection from "@/components/home/HomeExploreSection";
 import { pickRecommendedAttractions } from "@/lib/attractions/filterAttractions";
@@ -25,9 +26,23 @@ export default async function Home() {
           Plan trips that feel like you
         </h1>
         <p className="mt-4 max-w-2xl text-lg text-white/55">
-          Sign in to set your travel preferences and get routes tailored to your
-          pace, interests, and needs.
+          Set your travel preferences and get routes tailored to your pace,
+          interests, accessibility needs, and crowd tolerance.
         </p>
+        <div className="mt-8 flex flex-wrap gap-3">
+          <Link
+            href="/assistant"
+            className="rounded-full bg-accent px-8 py-3 text-sm font-semibold text-surface transition-opacity hover:opacity-90"
+          >
+            Start planning
+          </Link>
+          <Link
+            href="/map"
+            className="rounded-full border border-white/15 px-8 py-3 text-sm font-semibold text-white/70 transition-colors hover:border-white/30 hover:text-white"
+          >
+            Explore Manhattan
+          </Link>
+        </div>
       </div>
     );
   }
