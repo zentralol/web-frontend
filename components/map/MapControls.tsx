@@ -16,10 +16,11 @@ export type MapControlsProps = {
   heatmapEnabled: boolean;
   heatmapLoading: boolean;
   heatmapError: string | null;
-  heatmapTargetTime: string;
+  selectedHeatmapTimeId: string;
   heatmapTimeOptions: HeatmapTimeOption[];
   onHeatmapToggle: () => void;
-  onHeatmapTimeChange: (targetTime: string) => void;
+  onHeatmapTimeChange: (optionId: string) => void;
+  onHeatmapTimeSelectFocus: () => void;
   onLocate: (coords: Coords) => void;
 };
 
@@ -27,10 +28,11 @@ export default function MapControls({
   heatmapEnabled,
   heatmapLoading,
   heatmapError,
-  heatmapTargetTime,
+  selectedHeatmapTimeId,
   heatmapTimeOptions,
   onHeatmapToggle,
   onHeatmapTimeChange,
+  onHeatmapTimeSelectFocus,
   onLocate,
 }: MapControlsProps) {
   const map = useMap();
@@ -97,13 +99,13 @@ export default function MapControls({
               </label>
               <select
                 id="heatmap-time-select"
-                value={heatmapTargetTime}
+                value={selectedHeatmapTimeId}
                 onChange={(event) => onHeatmapTimeChange(event.target.value)}
-                disabled={heatmapLoading}
-                className="w-full min-w-[168px] rounded border border-white/10 bg-surface px-2 py-1 text-[11px] text-white/80 outline-none focus:border-accent/50 disabled:opacity-50"
+                onFocus={onHeatmapTimeSelectFocus}
+                className="w-full min-w-[168px] rounded border border-white/10 bg-surface px-2 py-1 text-[11px] text-white/80 outline-none focus:border-accent/50"
               >
                 {heatmapTimeOptions.map((option) => (
-                  <option key={option.id} value={option.targetTime}>
+                  <option key={option.id} value={option.id}>
                     {option.label}
                   </option>
                 ))}
