@@ -76,29 +76,28 @@ export function ForecastTimeline({
 
           const columnContent = (
             <>
-              <div className="flex min-h-0 w-full flex-1 items-end justify-center">
+              <div className="flex min-h-0 w-full flex-1 flex-col items-center justify-end">
+                <span
+                  className={`mb-1 shrink-0 font-mono leading-none ${
+                    isCompact ? "text-[8px]" : "text-[9px]"
+                  } ${
+                    isSelected
+                      ? "font-bold text-accent"
+                      : "text-white/65"
+                  }`}
+                >
+                  {point.score}
+                </span>
                 <div
                   style={{ height: barHeight }}
-                  className={`relative w-full rounded-t-sm transition-all duration-300 ${barClassName} ${
+                  className={`w-full rounded-t-sm transition-all duration-300 ${barClassName} ${
                     isSelected
                       ? "bg-accent/80"
                       : `${busynessScoreBarClass(point.score)} ${
                           interactive ? "hover:bg-accent/50" : ""
                         }`
                   }`}
-                >
-                  <span
-                    className={`pointer-events-none absolute -top-4 left-1/2 -translate-x-1/2 font-mono text-[9px] transition-opacity ${
-                      isSelected
-                        ? "font-bold text-accent opacity-100"
-                        : interactive
-                          ? "text-white/50 opacity-0 group-hover:opacity-100"
-                          : "text-white/50 opacity-0"
-                    }`}
-                  >
-                    {point.score}
-                  </span>
-                </div>
+                />
               </div>
               <span
                 className={`mt-2 shrink-0 font-mono transition-colors ${
