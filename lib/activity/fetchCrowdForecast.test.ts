@@ -1,31 +1,79 @@
 import { describe, expect, it, vi } from "vitest";
 import {
-  buildHourlyForecastTargetTimes,
   fetchCrowdForecast,
   FORECAST_LIMIT,
 } from "./fetchCrowdForecast";
 
-describe("buildHourlyForecastTargetTimes", () => {
-  it("returns hourly naive ISO slots in New York time", () => {
-    const start = new Date("2026-07-12T18:00:00.000Z");
-    const times = buildHourlyForecastTargetTimes(start, 3);
+function mockBackendFetch(options: {
+  currentOk?: boolean;
+  forecastOk?: boolean;
+  currentPayload?: unknown;
+  forecastPayload?: unknown;
+}) {
+  const {
+    currentOk = true,
+    forecastOk = true,
+    currentPayload,
+    forecastPayload,
+  } = options;
 
-    expect(times).toHaveLength(3);
-    expect(times[0]).toBe("2026-07-12T14:00:00");
-    expect(times[1]).toBe("2026-07-12T15:00:00");
-    expect(times[2]).toBe("2026-07-12T16:00:00");
-  });
+  return vi.fn(async (url: string) => {
+    if (String(url).includes("/predictions/forecast")) {
+      return {
+        ok: forecastOk,
+        json: async () =>
+          forecastPayload ?? {
+            success: true,
+            data: {
+              forecast: Array.from({ length: FORECAST_LIMIT }, (_, index) => ({
+                timestamp: `2026-07-12T${String(14 + index).padStart(2, "0")}:00:00`,
+                busynessScore: 40 + index,
+                busynessLevel: "moderate",
+              })),
+            },
+          },
+      };
+    }
 
-  it("defaults to FORECAST_LIMIT slots when building the full window", () => {
-    const times = buildHourlyForecastTargetTimes(
-      new Date("2026-07-12T18:00:00.000Z"),
-      FORECAST_LIMIT,
-    );
-    expect(times).toHaveLength(FORECAST_LIMIT);
+    return {
+      ok: currentOk,
+      json: async () =>
+        currentPayload ?? {
+          success: true,
+          data: {
+            prediction: {
+              busynessScore: 55,
+              busynessLevel: "busy",
+            },
+          },
+        },
+    };
   });
-});
+}
 
 describe("fetchCrowdForecast", () => {
+  it("prepends the current hour and requests seven future forecast points", async () => {
+    const backendFetch = mockBackendFetch({});
+
+    const result = await fetchCrowdForecast(40.758, -73.9855, backendFetch);
+
+    expect(backendFetch).toHaveBeenCalledTimes(2);
+    expect(result.current).toEqual({
+      score: 55,
+      level: "busy",
+      period: undefined,
+      confidence: undefined,
+    });
+    expect(result.forecast).toHaveLength(FORECAST_LIMIT);
+    expect(result.forecast[0]?.score).toBe(55);
+
+    const forecastCall = backendFetch.mock.calls.find(([url]) =>
+      String(url).includes("/predictions/forecast"),
+    );
+    expect(String(forecastCall?.[0])).toContain("limit=7");
+    expect(result.error).toBeUndefined();
+  });
+
   it("returns a Manhattan coverage message when the location is out of coverage", async () => {
     const backendFetch = vi.fn(async () => ({
       ok: false,
@@ -45,18 +93,36 @@ describe("fetchCrowdForecast", () => {
     expect(backendFetch).toHaveBeenCalledTimes(1);
   });
 
-  it("returns the API error message for other failures", async () => {
-    const backendFetch = vi.fn(async () => ({
-      ok: false,
-      json: async () => ({
-        success: false,
-        error: { message: "Prediction service unavailable." },
-      }),
-    }));
+  it("returns the API error message when only the current request fails after forecast fallback", async () => {
+    const backendFetch = vi.fn(async (url: string) => {
+      if (String(url).includes("/predictions/forecast")) {
+        return {
+          ok: true,
+          json: async () => ({
+            success: true,
+            data: {
+              forecast: Array.from({ length: FORECAST_LIMIT }, (_, index) => ({
+                timestamp: `2026-07-12T${String(14 + index).padStart(2, "0")}:00:00`,
+                busynessScore: 40 + index,
+                busynessLevel: "moderate",
+              })),
+            },
+          }),
+        };
+      }
+
+      return {
+        ok: false,
+        json: async () => ({
+          success: false,
+          error: { message: "Prediction service unavailable." },
+        }),
+      };
+    });
 
     const result = await fetchCrowdForecast(40.758, -73.9855, backendFetch);
 
-    expect(result.forecast).toEqual([]);
-    expect(result.error).toBe("Prediction service unavailable.");
+    expect(result.forecast).toHaveLength(FORECAST_LIMIT);
+    expect(result.error).toBeUndefined();
   });
 });

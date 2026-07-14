@@ -1,7 +1,10 @@
 import { describe, expect, test, vi } from "vitest";
 import {
   buildFutureHourOptions,
-  fetchBusynessAtTime,
+  fetchBusynessData,
+  fetchCurrentBusyness,
+  fetchForecastSeries,
+  MAP_FORECAST_HOURS,
   MAP_MAX_FUTURE_HOURS,
   toForecastTimeLabel,
 } from "./fetchPredictions";
@@ -21,8 +24,8 @@ describe("buildFutureHourOptions", () => {
   });
 });
 
-describe("fetchBusynessAtTime", () => {
-  test("posts prediction request for the selected hour offset", async () => {
+describe("fetchCurrentBusyness", () => {
+  test("posts prediction request for the current time", async () => {
     const backendFetch = vi.fn(async () => ({
       ok: true,
       json: async () => ({
@@ -36,8 +39,9 @@ describe("fetchBusynessAtTime", () => {
       }),
     }));
 
-    const result = await fetchBusynessAtTime(40.758, -73.9855, 3, backendFetch);
+    const result = await fetchCurrentBusyness(40.758, -73.9855, backendFetch);
 
+    expect(result.ok).toBe(true);
     expect(result.busyness).toEqual({
       score: 72,
       level: "busy",
@@ -46,33 +50,109 @@ describe("fetchBusynessAtTime", () => {
     });
     expect(backendFetch).toHaveBeenCalledTimes(1);
 
-    const [, init] = backendFetch.mock.calls[0];
-    const body = JSON.parse(init?.body as string) as {
-      lat: number;
-      lng: number;
-      targetTime: string;
-      durationMinutes: number;
-    };
-
-    expect(body.lat).toBe(40.758);
-    expect(body.lng).toBe(-73.9855);
-    expect(body.durationMinutes).toBe(60);
-    expect(body.targetTime).toMatch(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}$/);
+    const [url, init] = backendFetch.mock.calls[0];
+    expect(String(url)).toContain("/predictions");
+    expect(init?.method).toBe("POST");
   });
+});
 
-  test("returns an error message when the API response is not successful", async () => {
+describe("fetchForecastSeries", () => {
+  test("requests forecast series with the configured hour limit", async () => {
     const backendFetch = vi.fn(async () => ({
-      ok: false,
+      ok: true,
       json: async () => ({
-        success: false,
-        error: { message: "Prediction failed." },
+        success: true,
+        data: {
+          forecast: [
+            {
+              timestamp: "2026-07-10T11:00:00",
+              busynessScore: 40,
+              busynessLevel: "moderate",
+            },
+            {
+              timestamp: "2026-07-10T12:00:00",
+              busynessScore: 55,
+              busynessLevel: "busy",
+            },
+          ],
+        },
       }),
     }));
 
-    const result = await fetchBusynessAtTime(40.758, -73.9855, 2, backendFetch);
+    const result = await fetchForecastSeries(
+      40.758,
+      -73.9855,
+      MAP_FORECAST_HOURS,
+      backendFetch,
+    );
 
-    expect(result.busyness).toBeUndefined();
-    expect(result.busynessError).toBe("Prediction failed.");
+    expect(result.ok).toBe(true);
+    expect(result.forecast).toEqual([
+      {
+        rawTimestamp: "2026-07-10T11:00:00",
+        timestamp: "11:00 AM",
+        score: 40,
+        level: "moderate",
+      },
+      {
+        rawTimestamp: "2026-07-10T12:00:00",
+        timestamp: "12:00 PM",
+        score: 55,
+        level: "busy",
+      },
+    ]);
+
+    const [url] = backendFetch.mock.calls[0];
+    expect(String(url)).toContain("/predictions/forecast");
+    expect(String(url)).toContain(`limit=${MAP_FORECAST_HOURS}`);
+  });
+});
+
+describe("fetchBusynessData", () => {
+  test("combines current busyness and forecast series", async () => {
+    const backendFetch = vi.fn(async (url: string) => {
+      if (String(url).includes("/predictions/forecast")) {
+        return {
+          ok: true,
+          json: async () => ({
+            success: true,
+            data: {
+              forecast: [
+                {
+                  timestamp: "2026-07-10T11:00:00",
+                  busynessScore: 40,
+                  busynessLevel: "moderate",
+                },
+              ],
+            },
+          }),
+        };
+      }
+
+      return {
+        ok: true,
+        json: async () => ({
+          success: true,
+          data: {
+            prediction: {
+              busynessScore: 72,
+              busynessLevel: "busy",
+            },
+          },
+        }),
+      };
+    });
+
+    const result = await fetchBusynessData(40.758, -73.9855, backendFetch);
+
+    expect(result.busyness).toEqual({
+      score: 72,
+      level: "busy",
+      period: undefined,
+      confidence: undefined,
+    });
+    expect(result.forecast).toHaveLength(1);
+    expect(backendFetch).toHaveBeenCalledTimes(2);
   });
 });
 
@@ -87,6 +167,32 @@ describe("toForecastTimeLabel", () => {
 
   test("reads the digits of a Z-suffixed timestamp as Manhattan wall time", () => {
     expect(toForecastTimeLabel("2026-07-10T16:30:00.000Z")).toBe("4:30 PM");
+  });
+
+  test("mapForecastItems normalizes UTC timestamps to Manhattan before labeling", async () => {
+    const backendFetch = vi.fn(async () => ({
+      ok: true,
+      json: async () => ({
+        success: true,
+        data: {
+          forecast: [
+            {
+              timestamp: "2026-07-12T18:30:00.000Z",
+              busynessScore: 40,
+              busynessLevel: "moderate",
+            },
+          ],
+        },
+      }),
+    }));
+
+    const result = await fetchForecastSeries(40.758, -73.9855, 6, backendFetch);
+
+    expect(result.ok).toBe(true);
+    expect(result.forecast?.[0]?.rawTimestamp).toMatch(
+      /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}$/,
+    );
+    expect(result.forecast?.[0]?.rawTimestamp).not.toContain("Z");
   });
 
   test("formats midnight as 12 AM", () => {
