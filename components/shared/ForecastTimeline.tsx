@@ -1,0 +1,157 @@
+"use client";
+
+import { useState } from "react";
+import type { ForecastPoint } from "@/lib/map/fetchPredictions";
+import {
+  busynessLevelBadgeClass,
+  busynessScoreBarClass,
+  formatBusynessLevel,
+} from "@/lib/activity/busynessDisplay";
+
+type ForecastTimelineProps = {
+  points: ForecastPoint[];
+  variant?: "full" | "compact";
+  interactive?: boolean;
+  showGrid?: boolean;
+  showSummary?: boolean;
+  selectedIndex?: number;
+  onSelect?: (index: number) => void;
+};
+
+function formatCompactTimeLabel(timestamp: string): string {
+  return timestamp.replace(/:\d{2}\s/, " ");
+}
+
+export function ForecastTimeline({
+  points,
+  variant = "full",
+  interactive = true,
+  showGrid = variant === "full",
+  showSummary = variant === "full",
+  selectedIndex: controlledIndex,
+  onSelect,
+}: ForecastTimelineProps) {
+  const [internalIndex, setInternalIndex] = useState(0);
+  const selectedIndex = controlledIndex ?? internalIndex;
+  const selectedPoint = points[selectedIndex];
+  const isCompact = variant === "compact";
+
+  const handleSelect = (index: number) => {
+    if (!interactive) {
+      return;
+    }
+    onSelect?.(index);
+    if (controlledIndex === undefined) {
+      setInternalIndex(index);
+    }
+  };
+
+  if (points.length === 0) {
+    return null;
+  }
+
+  return (
+    <>
+      <div
+        className={`relative flex items-end justify-between gap-1 rounded-lg border border-white/5 bg-[#0d0e0f]/80 px-3 pb-3 ${
+          isCompact ? "mt-3 min-h-[7rem] pt-5" : "min-h-[11rem] pt-8"
+        }`}
+      >
+        {showGrid && (
+          <>
+            <div className="pointer-events-none absolute left-3 right-3 top-[20%] border-t border-white/5" />
+            <div className="pointer-events-none absolute left-3 right-3 top-[50%] border-t border-white/5" />
+            <div className="pointer-events-none absolute left-3 right-3 top-[80%] border-t border-white/5" />
+          </>
+        )}
+
+        {points.map((point, index) => {
+          const isSelected = interactive && index === selectedIndex;
+          const barHeight = `${Math.min(Math.max(point.score, 4), 100)}%`;
+          const barClassName = isCompact ? "max-w-6" : "max-w-10";
+
+          const bar = (
+            <>
+              <div className="flex min-h-0 w-full flex-1 items-end justify-center">
+                <div
+                  style={{ height: barHeight }}
+                  className={`relative w-full rounded-t-sm transition-all duration-300 ${barClassName} ${
+                    isSelected
+                      ? "bg-accent/80"
+                      : `${busynessScoreBarClass(point.score)} ${
+                          interactive ? "hover:bg-accent/50" : ""
+                        }`
+                  }`}
+                >
+                  <span
+                    className={`pointer-events-none absolute -top-4 left-1/2 -translate-x-1/2 font-mono text-[9px] transition-opacity ${
+                      isSelected
+                        ? "font-bold text-accent opacity-100"
+                        : interactive
+                          ? "text-white/50 opacity-0 group-hover:opacity-100"
+                          : "text-white/50 opacity-0"
+                    }`}
+                  >
+                    {point.score}
+                  </span>
+                </div>
+              </div>
+              <span
+                className={`mt-2 shrink-0 font-mono transition-colors ${
+                  isCompact ? "text-[8px]" : "text-[9px]"
+                } ${isSelected ? "text-accent" : "text-white/40"}`}
+              >
+                {formatCompactTimeLabel(point.timestamp)}
+              </span>
+            </>
+          );
+
+          if (interactive) {
+            return (
+              <button
+                key={`${point.rawTimestamp}-${point.score}`}
+                type="button"
+                onClick={() => handleSelect(index)}
+                className="group relative flex h-full min-w-0 flex-1 flex-col items-center"
+              >
+                {bar}
+              </button>
+            );
+          }
+
+          return (
+            <div
+              key={`${point.rawTimestamp}-${point.score}`}
+              className="group relative flex h-full min-w-0 flex-1 flex-col items-center"
+            >
+              {bar}
+            </div>
+          );
+        })}
+      </div>
+
+      {showSummary && selectedPoint && (
+        <div className="mt-4 flex items-center justify-between rounded-lg border border-white/5 bg-white/[0.02] px-4 py-3 text-xs">
+          <div>
+            <span className="block text-[10px] font-mono uppercase tracking-widest text-white/40">
+              Selected window
+            </span>
+            <strong className="text-sm text-white">
+              {selectedPoint.timestamp}
+            </strong>
+          </div>
+          <div className="text-right">
+            <span className="font-mono text-sm text-accent">
+              {selectedPoint.score}
+            </span>
+            <span
+              className={`mt-1 inline-block rounded px-2 py-0.5 text-[10px] uppercase ${busynessLevelBadgeClass(selectedPoint.level)}`}
+            >
+              {formatBusynessLevel(selectedPoint.level)}
+            </span>
+          </div>
+        </div>
+      )}
+    </>
+  );
+}

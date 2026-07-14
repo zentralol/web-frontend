@@ -38,6 +38,13 @@ type ForecastPayload = {
   };
 };
 
+export type ForecastPoint = {
+  rawTimestamp: string;
+  timestamp: string;
+  score: number;
+  level: string;
+};
+
 export type BusynessData = {
   busyness?: {
     score: number;
@@ -45,11 +52,7 @@ export type BusynessData = {
     period?: string;
     confidence?: number;
   };
-  forecast?: Array<{
-    timestamp: string;
-    score: number;
-    level: string;
-  }>;
+  forecast?: ForecastPoint[];
   busynessError?: string;
 };
 
@@ -57,6 +60,7 @@ const NAIVE_DATE_TIME_PATTERN =
   /^\d{4}-\d{2}-\d{2}T(\d{2}):(\d{2})/;
 
 export const MAP_MAX_FUTURE_HOURS = 8;
+export const MAP_FORECAST_HOURS = 6;
 
 function addHours(date: Date, hours: number): Date {
   return new Date(date.getTime() + hours * 60 * 60 * 1000);
@@ -99,15 +103,39 @@ export function toForecastTimeLabel(isoLikeValue: string): string {
   return `${hour12}:${minute} ${suffix}`;
 }
 
-export async function fetchBusynessAtTime(
+function mapForecastItems(
+  items: NonNullable<ForecastPayload["data"]>["forecast"],
+): ForecastPoint[] {
+  return (items ?? [])
+    .filter(
+      (item) =>
+        item.timestamp != null &&
+        item.busynessScore != null &&
+        item.busynessLevel != null,
+    )
+    .map((item) => {
+      const rawTimestamp = item.timestamp as string;
+      return {
+        rawTimestamp,
+        timestamp: toForecastTimeLabel(rawTimestamp),
+        score: item.busynessScore as number,
+        level: item.busynessLevel as string,
+      };
+    });
+}
+
+export async function fetchCurrentBusyness(
   lat: number,
   lng: number,
-  hoursAhead: number,
   backendFetch: FetchLike,
-): Promise<BusynessData> {
+): Promise<{
+  busyness?: BusynessData["busyness"];
+  errorPayload?: unknown;
+  ok: boolean;
+}> {
   try {
     const baseUrl = normalizeBaseUrl(backendBaseUrl);
-    const targetTime = formatInNewYork(addHours(new Date(), hoursAhead));
+    const targetTime = formatInNewYork(new Date());
 
     const response = await backendFetch(buildApiUrl(baseUrl, "/predictions"), {
       method: "POST",
@@ -131,15 +159,11 @@ export async function fetchBusynessAtTime(
       prediction.busynessLevel != null;
 
     if (!hasPrediction) {
-      return {
-        busynessError: parseApiError(
-          payload,
-          "Could not load busyness prediction.",
-        ),
-      };
+      return { ok: false, errorPayload: payload };
     }
 
     return {
+      ok: true,
       busyness: {
         score: prediction.busynessScore as number,
         level: prediction.busynessLevel as string,
@@ -148,7 +172,49 @@ export async function fetchBusynessAtTime(
       },
     };
   } catch {
-    return { busynessError: "Could not load busyness prediction." };
+    return { ok: false };
+  }
+}
+
+export async function fetchForecastSeries(
+  lat: number,
+  lng: number,
+  hours: number,
+  backendFetch: FetchLike,
+): Promise<{ forecast?: ForecastPoint[]; errorPayload?: unknown; ok: boolean }> {
+  try {
+    const baseUrl = normalizeBaseUrl(backendBaseUrl);
+    const now = new Date();
+    const end = addHours(now, hours);
+    const startTime = formatInNewYork(now);
+    const endTime = formatInNewYork(end);
+
+    const forecastUrl = new URL(buildApiUrl(baseUrl, "/predictions/forecast"));
+    forecastUrl.searchParams.set("lat", String(lat));
+    forecastUrl.searchParams.set("lng", String(lng));
+    forecastUrl.searchParams.set("startTime", startTime);
+    forecastUrl.searchParams.set("endTime", endTime);
+    forecastUrl.searchParams.set("limit", String(hours));
+
+    const response = await backendFetch(forecastUrl.toString());
+    const payload = (await response.json()) as ForecastPayload | ApiErrorPayload;
+
+    const hasForecast =
+      response.ok &&
+      Array.isArray((payload as ForecastPayload).data?.forecast);
+
+    if (!hasForecast) {
+      return { ok: false, errorPayload: payload };
+    }
+
+    return {
+      ok: true,
+      forecast: mapForecastItems(
+        (payload as ForecastPayload).data?.forecast,
+      ),
+    };
+  } catch {
+    return { ok: false };
   }
 }
 
@@ -158,100 +224,37 @@ export async function fetchBusynessData(
   backendFetch: FetchLike,
 ): Promise<BusynessData> {
   try {
-    const baseUrl = normalizeBaseUrl(backendBaseUrl);
-    const now = new Date();
-    const sixHoursLater = new Date(now.getTime() + 6 * 60 * 60 * 1000);
-
-    const targetTime = formatInNewYork(now);
-    const startTime = targetTime;
-    const endTime = formatInNewYork(sixHoursLater);
-
-    const currentPromise = backendFetch(buildApiUrl(baseUrl, "/predictions"), {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        lat,
-        lng,
-        targetTime,
-        durationMinutes: 60,
-      }),
-    });
-
-    const forecastUrl = new URL(buildApiUrl(baseUrl, "/predictions/forecast"));
-    forecastUrl.searchParams.set("lat", String(lat));
-    forecastUrl.searchParams.set("lng", String(lng));
-    forecastUrl.searchParams.set("startTime", startTime);
-    forecastUrl.searchParams.set("endTime", endTime);
-    forecastUrl.searchParams.set("limit", "6");
-
-    const forecastPromise = backendFetch(forecastUrl.toString());
-
-    const [currentResponse, forecastResponse] = await Promise.all([
-      currentPromise,
-      forecastPromise,
+    const [currentResult, forecastResult] = await Promise.all([
+      fetchCurrentBusyness(lat, lng, backendFetch),
+      fetchForecastSeries(lat, lng, MAP_FORECAST_HOURS, backendFetch),
     ]);
 
-    const currentPayload = (await currentResponse.json()) as
-      | CurrentPredictionPayload
-      | ApiErrorPayload;
-    const forecastPayload = (await forecastResponse.json()) as
-      | ForecastPayload
-      | ApiErrorPayload;
-
-    const hasCurrentPrediction =
-      currentResponse.ok &&
-      (currentPayload as CurrentPredictionPayload).data?.prediction
-        ?.busynessScore != null &&
-      (currentPayload as CurrentPredictionPayload).data?.prediction
-        ?.busynessLevel != null;
-
-    const hasForecast =
-      forecastResponse.ok &&
-      Array.isArray((forecastPayload as ForecastPayload).data?.forecast);
-
-    if (!hasCurrentPrediction && !hasForecast) {
+    if (!currentResult.ok && !forecastResult.ok) {
       return {
         busynessError: parseApiError(
-          currentPayload,
-          parseApiError(forecastPayload, "Could not load busyness predictions."),
+          currentResult.errorPayload,
+          parseApiError(
+            forecastResult.errorPayload,
+            "Could not load busyness predictions.",
+          ),
         ),
       };
     }
 
-    const current = (currentPayload as CurrentPredictionPayload).data?.prediction;
-    const forecastItems = (forecastPayload as ForecastPayload).data?.forecast ?? [];
-
     return {
-      busyness:
-        hasCurrentPrediction &&
-        current?.busynessScore != null &&
-        current.busynessLevel
-          ? {
-              score: current.busynessScore,
-              level: current.busynessLevel,
-              period: current.period,
-              confidence: current.confidence,
-            }
-          : undefined,
-      forecast: hasForecast
-        ? forecastItems
-            .filter(
-              (item) =>
-                item.timestamp != null &&
-                item.busynessScore != null &&
-                item.busynessLevel != null,
-            )
-            .map((item) => ({
-              timestamp: toForecastTimeLabel(item.timestamp as string),
-              score: item.busynessScore as number,
-              level: item.busynessLevel as string,
-            }))
-        : undefined,
+      busyness: currentResult.ok ? currentResult.busyness : undefined,
+      forecast: forecastResult.ok ? forecastResult.forecast : undefined,
       busynessError:
-        !hasCurrentPrediction || !hasForecast
-          ? !currentResponse.ok
-            ? parseApiError(currentPayload, "Could not load current busyness.")
-            : parseApiError(forecastPayload, "Could not load forecast data.")
+        !currentResult.ok || !forecastResult.ok
+          ? !currentResult.ok
+            ? parseApiError(
+                currentResult.errorPayload,
+                "Could not load current busyness.",
+              )
+            : parseApiError(
+                forecastResult.errorPayload,
+                "Could not load forecast data.",
+              )
           : undefined,
     };
   } catch {

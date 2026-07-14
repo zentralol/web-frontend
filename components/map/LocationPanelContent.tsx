@@ -1,23 +1,18 @@
 "use client";
 
 import Link from "next/link";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { ArrowLeft, Loader2, Navigation } from "lucide-react";
+import { ArrowLeft, Navigation, TrendingUp } from "lucide-react";
 import { spaceGrotesk } from "@/app/ui/fonts";
 import { buildRoutesHref } from "@/lib/attractions/buildRoutesHref";
-import { useAuthenticatedBackendFetch } from "@/lib/backend/useAuthenticatedBackendFetch";
 import {
-  buildFutureHourOptions,
-  fetchBusynessAtTime,
-} from "@/lib/map/fetchPredictions";
+  busynessLevelBadgeClass,
+  formatBusynessLevel,
+} from "@/lib/activity/busynessDisplay";
 import type { LocationSelectionState } from "@/lib/map/types";
+import { ForecastTimeline } from "@/components/shared/ForecastTimeline";
 
 function formatCoordinate(value: number) {
   return value.toFixed(5);
-}
-
-function formatBusynessLevel(level: string) {
-  return level.replaceAll("_", " ");
 }
 
 function SectionHeading() {
@@ -51,11 +46,6 @@ function LocationPanelSkeleton() {
   );
 }
 
-type FutureBusynessDisplay = {
-  score: number;
-  level: string;
-};
-
 export function LocationPanelContent({
   selection,
   onBack,
@@ -63,81 +53,6 @@ export function LocationPanelContent({
   selection: LocationSelectionState;
   onBack?: () => void;
 }) {
-  const backendFetch = useAuthenticatedBackendFetch();
-  const timeOptions = useMemo(() => buildFutureHourOptions(), []);
-  const [selectedHoursAhead, setSelectedHoursAhead] = useState(1);
-  const [futureBusyness, setFutureBusyness] =
-    useState<FutureBusynessDisplay | null>(null);
-  const [futureBusynessError, setFutureBusynessError] = useState<string | null>(
-    null,
-  );
-  const [isFutureLoading, setIsFutureLoading] = useState(false);
-  const locationKeyRef = useRef<string | null>(null);
-  const pendingLocationResetRef = useRef(false);
-
-  const loadFutureBusyness = useCallback(
-    async (lat: number, lng: number, hoursAhead: number) => {
-      setIsFutureLoading(true);
-      setFutureBusynessError(null);
-
-      const result = await fetchBusynessAtTime(
-        lat,
-        lng,
-        hoursAhead,
-        backendFetch,
-      );
-
-      if (result.busyness) {
-        setFutureBusyness({
-          score: result.busyness.score,
-          level: result.busyness.level,
-        });
-        setFutureBusynessError(null);
-      } else {
-        setFutureBusyness(null);
-        setFutureBusynessError(
-          result.busynessError ?? "Future busyness data unavailable.",
-        );
-      }
-
-      setIsFutureLoading(false);
-    },
-    [backendFetch],
-  );
-
-  useEffect(() => {
-    if (selection.status !== "ready") {
-      return;
-    }
-
-    const { lat, lng } = selection.location;
-    const locationKey = `${lat},${lng}`;
-    const isNewLocation = locationKeyRef.current !== locationKey;
-
-    if (isNewLocation) {
-      locationKeyRef.current = locationKey;
-      pendingLocationResetRef.current = true;
-      setSelectedHoursAhead(1);
-      void loadFutureBusyness(lat, lng, 1);
-      return;
-    }
-
-    if (pendingLocationResetRef.current && selectedHoursAhead === 1) {
-      pendingLocationResetRef.current = false;
-      return;
-    }
-
-    void loadFutureBusyness(lat, lng, selectedHoursAhead);
-  }, [selection, selectedHoursAhead, loadFutureBusyness]);
-
-  const handleTimeChange = (event: React.ChangeEvent<HTMLSelectElement>) => {
-    const hoursAhead = Number(event.target.value);
-    if (!Number.isFinite(hoursAhead)) {
-      return;
-    }
-    setSelectedHoursAhead(hoursAhead);
-  };
-
   return (
     <>
       {onBack && selection.status !== "idle" && (
@@ -218,72 +133,43 @@ export function LocationPanelContent({
             <p className="text-xs font-bold uppercase tracking-[0.25em] text-accent/80">
               Busyness
             </p>
-            {selection.location.busyness ? (
-              <div className="mt-2 space-y-2 text-sm text-white/55">
-                <p className="text-white/80">
-                  {formatBusynessLevel(selection.location.busyness.level)} ·{" "}
-                  {selection.location.busyness.score}
-                </p>
+            {selection.location.busyness ||
+            (selection.location.forecast &&
+              selection.location.forecast.length > 0) ? (
+              <div className="mt-2 space-y-3">
+                {selection.location.busyness && (
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span className="inline-flex items-center gap-1 rounded bg-accent/10 px-2 py-0.5 font-mono text-[10px] text-accent">
+                      <TrendingUp className="h-3 w-3" aria-hidden />
+                      Now: {selection.location.busyness.score}
+                    </span>
+                    <span
+                      className={`rounded px-2 py-0.5 text-[10px] uppercase ${busynessLevelBadgeClass(selection.location.busyness.level)}`}
+                    >
+                      {formatBusynessLevel(selection.location.busyness.level)}
+                    </span>
+                  </div>
+                )}
+
                 {selection.location.forecast &&
                   selection.location.forecast.length > 0 && (
                     <div>
                       <p className="text-xs uppercase tracking-[0.15em] text-accent/70">
-                        Next 6 hours
+                        Next {selection.location.forecast.length} hours
                       </p>
-                      <ul className="mt-2 space-y-1 text-white/55">
-                        {selection.location.forecast.map((item) => (
-                          <li key={`${item.timestamp}-${item.level}-${item.score}`}>
-                            {item.score} ({formatBusynessLevel(item.level)})
-                          </li>
-                        ))}
-                      </ul>
+                      <ForecastTimeline
+                        points={selection.location.forecast}
+                        variant="compact"
+                        interactive={false}
+                        showGrid={false}
+                        showSummary={false}
+                      />
                     </div>
                   )}
               </div>
             ) : (
               <p className="mt-2 text-sm text-white/55">
                 {selection.location.busynessError ?? "Busyness data unavailable."}
-              </p>
-            )}
-          </div>
-
-          <div>
-            <p className="text-xs font-bold uppercase tracking-[0.25em] text-accent/80">
-              Future busyness
-            </p>
-            <label className="mt-2 block">
-              <span className="sr-only">Forecast time</span>
-              <select
-                value={selectedHoursAhead}
-                onChange={handleTimeChange}
-                disabled={isFutureLoading}
-                className="w-full rounded-xl border border-white/10 bg-white/[0.03] px-3 py-2.5 text-sm text-white outline-none transition-colors focus:border-accent/40 disabled:cursor-not-allowed disabled:opacity-60"
-              >
-                {timeOptions.map((option) => (
-                  <option
-                    key={option.hoursAhead}
-                    value={option.hoursAhead}
-                    className="bg-surface text-white"
-                  >
-                    {option.label}
-                  </option>
-                ))}
-              </select>
-            </label>
-
-            {isFutureLoading ? (
-              <div className="mt-3 flex items-center gap-2 text-sm text-white/50">
-                <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
-                Loading prediction…
-              </div>
-            ) : futureBusyness ? (
-              <p className="mt-3 text-sm text-white/80">
-                {formatBusynessLevel(futureBusyness.level)} ·{" "}
-                {futureBusyness.score}
-              </p>
-            ) : (
-              <p className="mt-3 text-sm text-white/55">
-                {futureBusynessError ?? "Future busyness data unavailable."}
               </p>
             )}
           </div>

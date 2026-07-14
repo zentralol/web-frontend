@@ -1,3 +1,5 @@
+import type { ForecastPoint } from "@/lib/map/fetchPredictions";
+
 export type SelectedLocation = {
   lat: number;
   lng: number;
@@ -15,11 +17,7 @@ export type SelectedLocation = {
     period?: string;
     confidence?: number;
   };
-  forecast?: Array<{
-    timestamp: string;
-    score: number;
-    level: string;
-  }>;
+  forecast?: ForecastPoint[];
   busynessError?: string;
 };
 
