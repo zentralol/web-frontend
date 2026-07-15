@@ -19,34 +19,33 @@ export function SavedPlacesSection({
 }: SavedPlacesSectionProps) {
   const [places, setPlaces] = useState(initialPlaces);
   const [pendingRemoval, setPendingRemoval] = useState<FavoritePlace | null>(null);
-  const [isRemoving, setIsRemoving] = useState(false);
   const [toast, setToast] = useState<{
     message: string;
     variant: "success" | "error";
   } | null>(null);
 
   async function handleConfirmRemove() {
-    if (!pendingRemoval || isRemoving) return;
+    if (!pendingRemoval) return;
 
     const place = pendingRemoval;
-    setIsRemoving(true);
+    const previous = places;
+    // Match saved trips: remove immediately, then restore if the request fails.
+    setPlaces((current) =>
+      current.filter((item) => item.placeKey !== place.placeKey),
+    );
+    setPendingRemoval(null);
     try {
       await removeFavoritePlaceAction(place.placeKey);
-      setPlaces((current) =>
-        current.filter((item) => item.placeKey !== place.placeKey),
-      );
-      setPendingRemoval(null);
       setToast({
         message: `Removed ${place.name} from saved places.`,
         variant: "success",
       });
     } catch {
+      setPlaces(previous);
       setToast({
         message: "Could not remove this place. Please try again.",
         variant: "error",
       });
-    } finally {
-      setIsRemoving(false);
     }
   }
 
@@ -63,7 +62,6 @@ export function SavedPlacesSection({
         title="Remove saved place?"
         description={`This will remove ${pendingRemoval?.name ?? "this place"} from your saved places.`}
         confirmLabel="Remove"
-        isLoading={isRemoving}
         onConfirm={() => void handleConfirmRemove()}
         onCancel={() => setPendingRemoval(null)}
       />
@@ -103,7 +101,6 @@ export function SavedPlacesSection({
               key={place.placeKey}
               place={place}
               onRemove={setPendingRemoval}
-              isRemoving={isRemoving && pendingRemoval?.placeKey === place.placeKey}
             />
           ))}
         </div>
