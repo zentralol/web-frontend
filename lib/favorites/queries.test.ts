@@ -3,6 +3,7 @@ import { describe, expect, test } from "vitest";
 import {
   deleteFavoritePlace,
   listFavoritePlaceKeys,
+  updateFavoritePlaceNote,
   upsertFavoritePlace,
 } from "./queries";
 import type { FavoritePlaceRow, ParsedFavoritePlaceInput } from "./types";
@@ -35,6 +36,12 @@ class FakeQuery {
 
   delete() {
     this.operation = "delete";
+    return this;
+  }
+
+  update(payload: unknown) {
+    this.operation = "update";
+    this.payload = payload;
     return this;
   }
 
@@ -87,6 +94,7 @@ const row: FavoritePlaceRow = {
   longitude: -73.9832,
   category: null,
   neighborhood: null,
+  note: null,
   created_at: "2026-07-15T12:00:00.000Z",
 };
 
@@ -128,5 +136,36 @@ describe("favorite place queries", () => {
       ["user_id", "user_123"],
       ["place_key", "google:ChIJ123"],
     ]);
+  });
+
+  test("updates a note only for the current user's place", async () => {
+    const query = new FakeQuery({ data: null, error: null });
+
+    await updateFavoritePlaceNote(
+      asSupabase(query),
+      "user_123",
+      "google:ChIJ123",
+      "Visit near sunset",
+    );
+
+    expect(query.operation).toBe("update");
+    expect(query.payload).toEqual({ note: "Visit near sunset" });
+    expect(query.filters).toEqual([
+      ["user_id", "user_123"],
+      ["place_key", "google:ChIJ123"],
+    ]);
+  });
+
+  test("stores an empty note as null", async () => {
+    const query = new FakeQuery({ data: null, error: null });
+
+    await updateFavoritePlaceNote(
+      asSupabase(query),
+      "user_123",
+      "google:ChIJ123",
+      "",
+    );
+
+    expect(query.payload).toEqual({ note: null });
   });
 });

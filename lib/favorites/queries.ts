@@ -90,3 +90,20 @@ export async function deleteFavoritePlace(
     throw error;
   }
 }
+
+export async function updateFavoritePlaceNote(
+  supabase: SupabaseClient,
+  userId: string,
+  placeKey: string,
+  note: string,
+): Promise<void> {
+  const { error } = await supabase
+    .from(TABLE)
+    .update({ note: note.length > 0 ? note : null })
+    .eq("user_id", userId)
+    .eq("place_key", placeKey);
+
+  if (error) {
+    throw error;
+  }
+}

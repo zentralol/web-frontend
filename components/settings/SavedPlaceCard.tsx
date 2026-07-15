@@ -8,6 +8,7 @@ import {
   buildFavoriteRoutesHref,
 } from "@/lib/favorites/links";
 import type { FavoritePlace } from "@/lib/favorites/types";
+import { FavoritePlaceNoteEditor } from "@/components/settings/FavoritePlaceNoteEditor";
 
 type SavedPlaceCardProps = {
   place: FavoritePlace;
@@ -88,6 +89,11 @@ export function SavedPlaceCard({
           Take me there
         </Link>
       </div>
+      <FavoritePlaceNoteEditor
+        placeKey={place.placeKey}
+        placeName={place.name}
+        initialNote={place.note}
+      />
     </article>
   );
 }

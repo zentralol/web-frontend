@@ -6,10 +6,15 @@ import { createServerSupabaseClient } from "@/lib/supabase/server";
 import {
   deleteFavoritePlace,
   listFavoritePlaces,
+  updateFavoritePlaceNote,
   upsertFavoritePlace,
 } from "./queries";
 import type { FavoritePlace } from "./types";
-import { parseFavoritePlaceInput, parsePlaceKey } from "./validation";
+import {
+  parseFavoriteNoteInput,
+  parseFavoritePlaceInput,
+  parsePlaceKey,
+} from "./validation";
 
 async function requireUserId(): Promise<string> {
   const { userId } = await auth();
@@ -47,5 +52,18 @@ export async function removeFavoritePlaceAction(
   await deleteFavoritePlace(supabase, userId, placeKey);
 
   revalidatePath("/map");
+  revalidatePath("/settings");
+}
+
+export async function updateFavoritePlaceNoteAction(
+  placeKeyInput: unknown,
+  noteInput: unknown,
+): Promise<void> {
+  const userId = await requireUserId();
+  const placeKey = parsePlaceKey(placeKeyInput);
+  const note = parseFavoriteNoteInput(noteInput);
+  const supabase = await createServerSupabaseClient();
+  await updateFavoritePlaceNote(supabase, userId, placeKey, note);
+
   revalidatePath("/settings");
 }

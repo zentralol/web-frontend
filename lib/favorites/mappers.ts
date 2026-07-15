@@ -12,6 +12,7 @@ export function rowToFavoritePlace(row: FavoritePlaceRow): FavoritePlace {
     lng: row.longitude,
     category: row.category,
     neighborhood: row.neighborhood,
+    note: row.note,
     createdAt: row.created_at,
   };
 }

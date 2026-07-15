@@ -9,6 +9,8 @@ const LIMITS = {
   neighborhood: 150,
 } as const;
 
+export const MAX_FAVORITE_NOTE_LENGTH = 2000;
+
 function readRequiredString(
   value: unknown,
   field: keyof Pick<typeof LIMITS, "name">,
@@ -112,4 +114,18 @@ export function parsePlaceKey(value: unknown): string {
     throw new Error("Invalid place key");
   }
   return trimmed;
+}
+
+/** Accept an empty note to clear it; reject non-string or oversized input. */
+export function parseFavoriteNoteInput(value: unknown): string {
+  if (value === undefined || value === null) {
+    return "";
+  }
+  if (
+    typeof value !== "string" ||
+    value.length > MAX_FAVORITE_NOTE_LENGTH
+  ) {
+    throw new Error("Invalid note");
+  }
+  return value;
 }

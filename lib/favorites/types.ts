@@ -29,6 +29,7 @@ export type FavoritePlaceRow = {
   longitude: number;
   category: string | null;
   neighborhood: string | null;
+  note: string | null;
   created_at: string;
 };
 
@@ -43,5 +44,6 @@ export type FavoritePlace = {
   lng: number;
   category: string | null;
   neighborhood: string | null;
+  note: string | null;
   createdAt: string;
 };

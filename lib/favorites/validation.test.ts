@@ -1,5 +1,10 @@
 import { describe, expect, test } from "vitest";
-import { parseFavoritePlaceInput, parsePlaceKey } from "./validation";
+import {
+  MAX_FAVORITE_NOTE_LENGTH,
+  parseFavoriteNoteInput,
+  parseFavoritePlaceInput,
+  parsePlaceKey,
+} from "./validation";
 
 describe("parseFavoritePlaceInput", () => {
   test("normalizes a valid favorite place and derives its identity", () => {
@@ -47,5 +52,21 @@ describe("parsePlaceKey", () => {
   test("rejects unsupported place key namespaces", () => {
     expect(() => parsePlaceKey("assistant:123")).toThrow("Invalid place key");
     expect(() => parsePlaceKey("google:")).toThrow("Invalid place key");
+  });
+});
+
+describe("parseFavoriteNoteInput", () => {
+  test("preserves note whitespace and accepts an empty value to clear it", () => {
+    expect(parseFavoriteNoteInput("  Meet by the fountain  ")).toBe(
+      "  Meet by the fountain  ",
+    );
+    expect(parseFavoriteNoteInput(null)).toBe("");
+  });
+
+  test("rejects non-string and oversized notes", () => {
+    expect(() => parseFavoriteNoteInput(42)).toThrow("Invalid note");
+    expect(() =>
+      parseFavoriteNoteInput("x".repeat(MAX_FAVORITE_NOTE_LENGTH + 1)),
+    ).toThrow("Invalid note");
   });
 });
