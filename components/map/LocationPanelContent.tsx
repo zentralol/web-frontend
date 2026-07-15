@@ -12,6 +12,8 @@ import type { LocationSelectionState } from "@/lib/map/types";
 import { ForecastTimeline } from "@/components/shared/ForecastTimeline";
 import { QuieterTimesSection } from "@/components/map/QuieterTimesSection";
 import type { QuietTimesResponse } from "@/lib/recommendations/types";
+import { FavoritePlaceButton } from "@/components/favorites/FavoritePlaceButton";
+import { buildPlaceIdentity } from "@/lib/favorites/placeKey";
 
 function formatCoordinate(value: number) {
   return value.toFixed(5);
@@ -54,12 +56,16 @@ export function LocationPanelContent({
   quietTimesData = null,
   quietTimesLoading = false,
   quietTimesError = null,
+  favoritePlaceKeys = [],
+  onFavoriteChange = () => {},
 }: {
   selection: LocationSelectionState;
   onBack?: () => void;
   quietTimesData?: QuietTimesResponse | null;
   quietTimesLoading?: boolean;
   quietTimesError?: string | null;
+  favoritePlaceKeys?: string[];
+  onFavoriteChange?: (placeKey: string, isFavorite: boolean) => void;
 }) {
   return (
     <>
@@ -226,17 +232,26 @@ export function LocationPanelContent({
             </p>
           </div>
 
-          <Link
-            href={buildRoutesHref({
-              lat: selection.location.lat,
-              lng: selection.location.lng,
-              name: selection.location.name ?? "Selected location",
-            })}
-            className={`${spaceGrotesk.className} inline-flex items-center gap-2 rounded-full bg-accent px-5 py-2.5 text-xs font-bold uppercase tracking-widest text-surface transition-opacity hover:opacity-90`}
-          >
-            <Navigation className="h-3.5 w-3.5" aria-hidden />
-            Take me there
-          </Link>
+          <div className="flex flex-wrap gap-3">
+            <FavoritePlaceButton
+              location={selection.location}
+              isFavorite={favoritePlaceKeys.includes(
+                buildPlaceIdentity(selection.location).placeKey,
+              )}
+              onFavoriteChange={onFavoriteChange}
+            />
+            <Link
+              href={buildRoutesHref({
+                lat: selection.location.lat,
+                lng: selection.location.lng,
+                name: selection.location.name ?? "Selected location",
+              })}
+              className={`${spaceGrotesk.className} inline-flex items-center gap-2 rounded-full bg-accent px-5 py-2.5 text-xs font-bold uppercase tracking-widest text-surface transition-opacity hover:opacity-90`}
+            >
+              <Navigation className="h-3.5 w-3.5" aria-hidden />
+              Take me there
+            </Link>
+          </div>
         </div>
       )}
     </>

@@ -22,6 +22,8 @@ type LocationBottomSheetProps = {
   quietTimesData?: QuietTimesResponse | null;
   quietTimesLoading?: boolean;
   quietTimesError?: string | null;
+  favoritePlaceKeys?: string[];
+  onFavoriteChange?: (placeKey: string, isFavorite: boolean) => void;
 };
 
 export default function LocationBottomSheet({
@@ -31,6 +33,8 @@ export default function LocationBottomSheet({
   quietTimesData,
   quietTimesLoading,
   quietTimesError,
+  favoritePlaceKeys,
+  onFavoriteChange,
 }: LocationBottomSheetProps) {
   const [present, setPresent] = useState(false);
   const [open, setOpen] = useState(false);
@@ -205,6 +209,8 @@ export default function LocationBottomSheet({
             quietTimesData={quietTimesData}
             quietTimesLoading={quietTimesLoading}
             quietTimesError={quietTimesError}
+            favoritePlaceKeys={favoritePlaceKeys}
+            onFavoriteChange={onFavoriteChange}
           />
         </div>
       </div>

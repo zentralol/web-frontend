@@ -4,6 +4,8 @@ import { SettingsForm } from "@/components/onboarding/SettingsForm";
 import { getOnboardingPreferences } from "@/lib/onboarding/queries";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 import { spaceGrotesk } from "@/app/ui/fonts";
+import { SavedPlacesSection } from "@/components/settings/SavedPlacesSection";
+import { listFavoritePlaces } from "@/lib/favorites/queries";
 
 export default async function SettingsPage() {
   const { userId } = await auth();
@@ -19,6 +21,10 @@ export default async function SettingsPage() {
     redirect("/onboarding");
   }
 
+  const favoritePlaces = await listFavoritePlaces(supabase, userId).catch(
+    () => [] as Awaited<ReturnType<typeof listFavoritePlaces>>,
+  );
+
   return (
     <div className="mx-auto max-w-3xl px-4 py-10 sm:px-6">
       <div className="mb-10">
@@ -28,13 +34,32 @@ export default async function SettingsPage() {
         <h1
           className={`${spaceGrotesk.className} mt-3 text-2xl font-light tracking-tight text-white sm:text-3xl`}
         >
-          Travel preferences
+          Your settings
         </h1>
         <p className="mt-3 text-base text-white/55">
-          Update what matters to you. Changes sync across web and mobile.
+          Manage your saved places and update what matters to you.
         </p>
       </div>
-      <SettingsForm initialValues={preferences} />
+      <div className="space-y-12">
+        <SavedPlacesSection initialPlaces={favoritePlaces} />
+        <section
+          aria-labelledby="travel-preferences-heading"
+          className="border-t border-white/10 pt-10"
+        >
+          <div className="mb-6">
+            <p className="text-xs font-bold uppercase tracking-[0.25em] text-accent/80">
+              Preferences
+            </p>
+            <h2
+              id="travel-preferences-heading"
+              className={`${spaceGrotesk.className} mt-2 text-xl font-light text-white`}
+            >
+              Travel preferences
+            </h2>
+          </div>
+          <SettingsForm initialValues={preferences} />
+        </section>
+      </div>
     </div>
   );
 }

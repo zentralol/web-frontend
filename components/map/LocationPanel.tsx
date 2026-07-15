@@ -17,6 +17,8 @@ type LocationPanelProps = {
   onDismiss?: () => void;
   onBack?: () => void;
   browsePanelProps: AttractionBrowsePanelProps;
+  favoritePlaceKeys?: string[];
+  onFavoriteChange?: (placeKey: string, isFavorite: boolean) => void;
 };
 
 export default function LocationPanel({
@@ -24,6 +26,8 @@ export default function LocationPanel({
   onDismiss,
   onBack,
   browsePanelProps,
+  favoritePlaceKeys = [],
+  onFavoriteChange,
 }: LocationPanelProps) {
   const isIdle = selection.status === "idle";
   const backendFetch = useAuthenticatedBackendFetch();
@@ -98,6 +102,8 @@ export default function LocationPanel({
           <LocationPanelContent
             selection={selection}
             onBack={onBack}
+            favoritePlaceKeys={favoritePlaceKeys}
+            onFavoriteChange={onFavoriteChange}
             {...quietTimesProps}
           />
         )}
@@ -106,6 +112,8 @@ export default function LocationPanel({
         selection={selection}
         onDismiss={onDismiss}
         onBack={onBack}
+        favoritePlaceKeys={favoritePlaceKeys}
+        onFavoriteChange={onFavoriteChange}
         {...quietTimesProps}
       />
     </>

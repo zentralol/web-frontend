@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect } from "react";
-import { CheckCircle2, X } from "lucide-react";
+import { AlertCircle, CheckCircle2, X } from "lucide-react";
 import { spaceGrotesk } from "@/app/ui/fonts";
 
 interface ToastProps {
@@ -9,6 +9,7 @@ interface ToastProps {
   open: boolean;
   onClose: () => void;
   durationMs?: number;
+  variant?: "success" | "error";
 }
 
 export function Toast({
@@ -16,6 +17,7 @@ export function Toast({
   open,
   onClose,
   durationMs = 3000,
+  variant = "success",
 }: ToastProps) {
   useEffect(() => {
     if (!open) return;
@@ -34,8 +36,16 @@ export function Toast({
       aria-live="polite"
       className="pointer-events-none fixed inset-x-0 top-[calc(var(--viewport-top)+1rem)] z-50 flex justify-center px-4"
     >
-      <div className="animate-fade-in pointer-events-auto flex max-w-md items-center gap-3 rounded-xl border border-accent/25 bg-surface px-4 py-3 shadow-lg">
-        <CheckCircle2 className="h-4 w-4 shrink-0 text-accent" aria-hidden />
+      <div
+        className={`animate-fade-in pointer-events-auto flex max-w-md items-center gap-3 rounded-xl border bg-surface px-4 py-3 shadow-lg ${
+          variant === "error" ? "border-red-500/30" : "border-accent/25"
+        }`}
+      >
+        {variant === "error" ? (
+          <AlertCircle className="h-4 w-4 shrink-0 text-red-300" aria-hidden />
+        ) : (
+          <CheckCircle2 className="h-4 w-4 shrink-0 text-accent" aria-hidden />
+        )}
         <p className={`${spaceGrotesk.className} min-w-0 flex-1 text-sm font-medium text-white`}>
           {message}
         </p>
