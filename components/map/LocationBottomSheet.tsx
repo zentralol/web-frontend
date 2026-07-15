@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { LocationPanelContent } from "@/components/map/LocationPanelContent";
 import type { LocationSelectionState } from "@/lib/map/types";
+import type { QuietTimesResponse } from "@/lib/recommendations/types";
 
 type Snap = "half" | "full";
 
@@ -18,12 +19,18 @@ type LocationBottomSheetProps = {
   selection: LocationSelectionState;
   onDismiss?: () => void;
   onBack?: () => void;
+  quietTimesData?: QuietTimesResponse | null;
+  quietTimesLoading?: boolean;
+  quietTimesError?: string | null;
 };
 
 export default function LocationBottomSheet({
   selection,
   onDismiss,
   onBack,
+  quietTimesData,
+  quietTimesLoading,
+  quietTimesError,
 }: LocationBottomSheetProps) {
   const [present, setPresent] = useState(false);
   const [open, setOpen] = useState(false);
@@ -192,7 +199,13 @@ export default function LocationBottomSheet({
           <div className="h-1 w-10 rounded-full bg-white/20" />
         </div>
         <div className="min-h-0 flex-1 overflow-y-auto px-6 pb-6">
-          <LocationPanelContent selection={selection} onBack={onBack} />
+          <LocationPanelContent
+            selection={selection}
+            onBack={onBack}
+            quietTimesData={quietTimesData}
+            quietTimesLoading={quietTimesLoading}
+            quietTimesError={quietTimesError}
+          />
         </div>
       </div>
     </div>

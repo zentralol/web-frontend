@@ -7,6 +7,9 @@ import type { AttractionSortMode } from "@/lib/attractions/filterAttractions";
 import type { CategoryGroup } from "@/lib/attractions/categoryGroups";
 import type { Attraction } from "@/lib/attractions/types";
 import { haversineDistanceKm } from "@/lib/geo/haversineDistance";
+import { formatDistanceKm } from "@/lib/geo/format";
+import { QuieterAreaCard } from "@/components/map/QuieterAreaCard";
+import type { QuieterAreaRecommendation } from "@/lib/recommendations/types";
 
 export type AttractionsLoadState = "loading" | "ready" | "error" | "empty";
 
@@ -21,12 +24,18 @@ export type AttractionBrowsePanelProps = {
   sortMode: AttractionSortMode;
   highlightedId: number | null;
   nearMeError?: string | null;
+  quietAreas?: QuieterAreaRecommendation[];
+  quietAreasLoading?: boolean;
+  quietAreasError?: string | null;
+  locatingQuietAreas?: boolean;
   userCoords?: { lat: number; lng: number } | null;
   onSearchChange: (query: string) => void;
   onCategoryChange: (category: CategoryGroup | null) => void;
   onSortModeChange: (mode: AttractionSortMode) => void;
   onNearMe: () => void;
+  onQuietAreas: () => void;
   onSelect: (attraction: Attraction) => void;
+  onSelectQuietArea: (area: QuieterAreaRecommendation) => void;
   onRetry: () => void;
   locatingNearMe?: boolean;
 };
@@ -35,14 +44,8 @@ const SORT_OPTIONS: { value: AttractionSortMode; label: string }[] = [
   { value: "recommended", label: "Recommended" },
   { value: "near_me", label: "Near me" },
   { value: "name", label: "A–Z" },
+  { value: "quiet_areas", label: "Quiet areas" },
 ];
-
-function formatDistanceKm(km: number): string {
-  if (km < 1) {
-    return `${Math.round(km * 1000)} m`;
-  }
-  return `${km.toFixed(1)} km`;
-}
 
 export default function AttractionBrowsePanel({
   loadState,
@@ -55,12 +58,18 @@ export default function AttractionBrowsePanel({
   sortMode,
   highlightedId,
   nearMeError,
+  quietAreas = [],
+  quietAreasLoading = false,
+  quietAreasError,
+  locatingQuietAreas = false,
   userCoords,
   onSearchChange,
   onCategoryChange,
   onSortModeChange,
   onNearMe,
+  onQuietAreas,
   onSelect,
+  onSelectQuietArea,
   onRetry,
   locatingNearMe = false,
 }: AttractionBrowsePanelProps) {
@@ -113,77 +122,126 @@ export default function AttractionBrowsePanel({
       {loadState === "ready" && (
         <>
           <p className="mt-2 text-sm text-white/55">
-            {filteredAttractions.length} of {totalCount} places
+            {sortMode === "quiet_areas"
+              ? `${quietAreas.length} quieter area${quietAreas.length === 1 ? "" : "s"} nearby`
+              : `${filteredAttractions.length} of ${totalCount} places`}
           </p>
 
-          <div className="relative mt-4">
-            <Search
-              className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-white/40"
-              aria-hidden
-            />
-            <input
-              type="search"
-              value={searchQuery}
-              onChange={(event) => onSearchChange(event.target.value)}
-              placeholder="Search attractions…"
-              aria-label="Search attractions"
-              className="w-full rounded-xl border border-white/10 bg-white/[0.03] py-2.5 pl-10 pr-3 text-sm text-white placeholder:text-white/35 outline-none transition-colors focus:border-accent/40"
-            />
-          </div>
-
-          <div className="mt-3 flex flex-wrap gap-2">
-            <CategoryChip
-              label="All"
-              active={categoryFilter === null}
-              onClick={() => onCategoryChange(null)}
-            />
-            {categories.map((category) => (
-              <CategoryChip
-                key={category}
-                label={category}
-                active={categoryFilter === category}
-                onClick={() => onCategoryChange(category)}
+          {sortMode !== "quiet_areas" && (
+            <div className="relative mt-4">
+              <Search
+                className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-white/40"
+                aria-hidden
               />
-            ))}
-          </div>
+              <input
+                type="search"
+                value={searchQuery}
+                onChange={(event) => onSearchChange(event.target.value)}
+                placeholder="Search attractions…"
+                aria-label="Search attractions"
+                className="w-full rounded-xl border border-white/10 bg-white/[0.03] py-2.5 pl-10 pr-3 text-sm text-white placeholder:text-white/35 outline-none transition-colors focus:border-accent/40"
+              />
+            </div>
+          )}
+
+          {sortMode !== "quiet_areas" && (
+            <div className="mt-3 flex flex-wrap gap-2">
+              <CategoryChip
+                label="All"
+                active={categoryFilter === null}
+                onClick={() => onCategoryChange(null)}
+              />
+              {categories.map((category) => (
+                <CategoryChip
+                  key={category}
+                  label={category}
+                  active={categoryFilter === category}
+                  onClick={() => onCategoryChange(category)}
+                />
+              ))}
+            </div>
+          )}
 
           <div className="mt-3 flex flex-wrap gap-2">
-            {SORT_OPTIONS.map((option) => (
-              <button
-                key={option.value}
-                type="button"
-                onClick={() => {
-                  if (option.value === "near_me") {
-                    onNearMe();
-                    return;
-                  }
-                  onSortModeChange(option.value);
-                }}
-                disabled={option.value === "near_me" && locatingNearMe}
-                className={`rounded-full border px-3 py-1 text-[11px] font-semibold uppercase tracking-wide transition-colors ${
-                  sortMode === option.value
-                    ? "border-accent/50 bg-accent/10 text-accent"
-                    : "border-white/10 text-white/55 hover:border-white/20 hover:text-white/80"
-                } disabled:cursor-not-allowed disabled:opacity-50`}
-              >
-                {option.value === "near_me" && locatingNearMe ? (
-                  <span className="inline-flex items-center gap-1">
-                    <Loader2 className="h-3 w-3 animate-spin" aria-hidden />
-                    Near me
-                  </span>
-                ) : (
-                  option.label
-                )}
-              </button>
-            ))}
+            {SORT_OPTIONS.map((option) => {
+              const isLocating =
+                option.value === "near_me"
+                  ? locatingNearMe
+                  : option.value === "quiet_areas"
+                    ? locatingQuietAreas
+                    : false;
+              const isActive = sortMode === option.value;
+
+              return (
+                <button
+                  key={option.value}
+                  type="button"
+                  onClick={() => {
+                    if (option.value === "near_me") {
+                      onNearMe();
+                      return;
+                    }
+                    if (option.value === "quiet_areas") {
+                      if (!isActive) {
+                        onQuietAreas();
+                      }
+                      return;
+                    }
+                    onSortModeChange(option.value);
+                  }}
+                  disabled={isLocating}
+                  className={`rounded-full border px-3 py-1 text-[11px] font-semibold uppercase tracking-wide transition-colors ${
+                    isActive
+                      ? "border-accent/50 bg-accent/10 text-accent"
+                      : "border-white/10 text-white/55 hover:border-white/20 hover:text-white/80"
+                  } disabled:cursor-not-allowed disabled:opacity-50`}
+                >
+                  {isLocating ? (
+                    <span className="inline-flex items-center gap-1">
+                      <Loader2 className="h-3 w-3 animate-spin" aria-hidden />
+                      {option.label}
+                    </span>
+                  ) : (
+                    option.label
+                  )}
+                </button>
+              );
+            })}
           </div>
 
           {nearMeError && (
             <p className="mt-2 text-xs text-red-400/90">{nearMeError}</p>
           )}
 
+          {quietAreasError && (
+            <p className="mt-2 text-xs text-red-400/90">{quietAreasError}</p>
+          )}
+
+          {quietAreasLoading && sortMode === "quiet_areas" && (
+            <div className="mt-6 flex items-center gap-2 text-sm text-white/55">
+              <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
+              Finding quieter areas…
+            </div>
+          )}
+
           <ul className="mt-4 min-h-0 flex-1 space-y-2 overflow-y-auto pb-2">
-            {filteredAttractions.length === 0 ? (
+            {sortMode === "quiet_areas" ? (
+              quietAreas.length === 0 && !quietAreasLoading ? (
+                <li className="text-sm text-white/55">
+                  {quietAreasError ? "" : "No quieter areas found nearby."}
+                </li>
+              ) : (
+                quietAreas.map((area) => (
+                  <li key={area.h3Cell}>
+                    <QuieterAreaCard
+                      area={area}
+                      userCoords={userCoords}
+                      onClick={() => onSelectQuietArea(area)}
+                    />
+                  </li>
+                ))
+              )
+            ) : filteredAttractions.length === 0 ? (
               <li className="text-sm text-white/55">No matches for your filters.</li>
             ) : (
               filteredAttractions.map((attraction) => {

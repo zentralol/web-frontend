@@ -17,6 +17,9 @@ import { fetchAttractions } from "@/lib/attractions/fetchAttractions";
 import type { Attraction } from "@/lib/attractions/types";
 import { requestCurrentPosition } from "@/lib/geo/requestCurrentPosition";
 import { fetchHeatmap, type HeatmapPoint } from "@/lib/map/fetchHeatmap";
+import { fetchQuieterAreas } from "@/lib/recommendations/fetchRecommendations";
+import type { QuieterAreaRecommendation } from "@/lib/recommendations/types";
+import { useAuthenticatedBackendFetch } from "@/lib/backend/useAuthenticatedBackendFetch";
 import {
   HEATMAP_OPTIONS_REFRESH_MS,
   useLiveHeatmapTimeOptions,
@@ -83,6 +86,11 @@ export default function MapWorkspace({
   const [heatmapPoints, setHeatmapPoints] = useState<HeatmapPoint[]>([]);
   const [heatmapLoading, setHeatmapLoading] = useState(false);
   const [heatmapError, setHeatmapError] = useState<string | null>(null);
+  const [quietAreas, setQuietAreas] = useState<QuieterAreaRecommendation[]>([]);
+  const [quietAreasLoading, setQuietAreasLoading] = useState(false);
+  const [quietAreasError, setQuietAreasError] = useState<string | null>(null);
+  const [locatingQuietAreas, setLocatingQuietAreas] = useState(false);
+  const backendFetch = useAuthenticatedBackendFetch();
   const {
     options: heatmapTimeOptions,
     refreshOptions: refreshHeatmapTimeOptions,
@@ -240,6 +248,59 @@ export default function MapWorkspace({
     };
   }, [heatmapEnabled, heatmapTargetTime]);
 
+  useEffect(() => {
+    if (sortMode !== "quiet_areas" || !userCoords) {
+      return;
+    }
+
+    let cancelled = false;
+    const timer = window.setTimeout(() => {
+      setQuietAreasLoading(true);
+      setQuietAreasError(null);
+
+      void (async () => {
+        try {
+          const targetTime = heatmapEnabled
+            ? heatmapTargetTime
+            : formatInNewYork(new Date());
+          const result = await fetchQuieterAreas(
+            {
+              lat: userCoords.lat,
+              lng: userCoords.lng,
+              targetTime,
+              limit: 10,
+            },
+            backendFetch,
+          );
+          if (cancelled) return;
+          if (result.ok) {
+            setQuietAreas(result.data.recommendations);
+          } else {
+            setQuietAreas([]);
+            setQuietAreasError(result.error);
+          }
+        } catch (error) {
+          if (cancelled) return;
+          setQuietAreas([]);
+          setQuietAreasError(
+            error instanceof Error
+              ? error.message
+              : "Could not load quieter areas.",
+          );
+        } finally {
+          if (!cancelled) {
+            setQuietAreasLoading(false);
+          }
+        }
+      })();
+    }, 0);
+
+    return () => {
+      cancelled = true;
+      window.clearTimeout(timer);
+    };
+  }, [sortMode, userCoords, heatmapEnabled, heatmapTargetTime, backendFetch]);
+
   const handleHeatmapToggle = useCallback(() => {
     const next = !heatmapEnabled;
     setHeatmapEnabled(next);
@@ -318,6 +379,57 @@ export default function MapWorkspace({
     }
   }, []);
 
+  const handleQuietAreas = useCallback(async () => {
+    if (sortMode === "quiet_areas") {
+      return;
+    }
+    setQuietAreasError(null);
+    if (userCoords) {
+      setSortMode("quiet_areas");
+      setQuietAreas([]);
+      setQuietAreasLoading(true);
+      return;
+    }
+    setLocatingQuietAreas(true);
+    try {
+      const coords = await requestCurrentPosition();
+      setUserCoords(coords);
+      setSortMode("quiet_areas");
+      setQuietAreas([]);
+      setQuietAreasLoading(true);
+    } catch {
+      setQuietAreasError(
+        "Couldn't get your location. Check location permissions.",
+      );
+    } finally {
+      setLocatingQuietAreas(false);
+    }
+  }, [sortMode, userCoords]);
+
+  const handleSelectQuietArea = useCallback(
+    (area: QuieterAreaRecommendation) => {
+      setHighlightedId(null);
+      setFocusTarget({
+        lat: area.coordinates.lat,
+        lng: area.coordinates.lng,
+      });
+      setSelection({
+        status: "ready",
+        location: {
+          lat: area.coordinates.lat,
+          lng: area.coordinates.lng,
+          source: "map",
+          busyness: {
+            score: area.busynessScore,
+            level: area.busynessLevel,
+            period: area.period,
+          },
+        },
+      });
+    },
+    [],
+  );
+
   const handleAttractionInteract = useCallback((attraction: Attraction) => {
     setHighlightedId(attraction.id);
   }, []);
@@ -380,12 +492,18 @@ export default function MapWorkspace({
     sortMode,
     highlightedId,
     nearMeError,
+    quietAreas,
+    quietAreasLoading,
+    quietAreasError,
+    locatingQuietAreas,
     userCoords,
     onSearchChange: setSearchQuery,
     onCategoryChange: setCategoryFilter,
     onSortModeChange: setSortMode,
     onNearMe: handleNearMe,
+    onQuietAreas: handleQuietAreas,
     onSelect: handleSelectAttraction,
+    onSelectQuietArea: handleSelectQuietArea,
     onRetry: loadAttractions,
     locatingNearMe,
   };

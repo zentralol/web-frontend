@@ -8,7 +8,7 @@ import {
 import { scoreAttractionInterests } from "./interestMatching";
 import type { Attraction } from "./types";
 
-export type AttractionSortMode = "recommended" | "near_me" | "name";
+export type AttractionSortMode = "recommended" | "near_me" | "name" | "quiet_areas";
 
 export type FilterAttractionsOptions = {
   query?: string;

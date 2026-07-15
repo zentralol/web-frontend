@@ -10,6 +10,8 @@ import {
 } from "@/lib/activity/busynessDisplay";
 import type { LocationSelectionState } from "@/lib/map/types";
 import { ForecastTimeline } from "@/components/shared/ForecastTimeline";
+import { QuieterTimesSection } from "@/components/map/QuieterTimesSection";
+import type { QuietTimesResponse } from "@/lib/recommendations/types";
 
 function formatCoordinate(value: number) {
   return value.toFixed(5);
@@ -49,9 +51,15 @@ function LocationPanelSkeleton() {
 export function LocationPanelContent({
   selection,
   onBack,
+  quietTimesData = null,
+  quietTimesLoading = false,
+  quietTimesError = null,
 }: {
   selection: LocationSelectionState;
   onBack?: () => void;
+  quietTimesData?: QuietTimesResponse | null;
+  quietTimesLoading?: boolean;
+  quietTimesError?: string | null;
 }) {
   return (
     <>
@@ -173,6 +181,29 @@ export function LocationPanelContent({
               </p>
             )}
           </div>
+
+          {selection.status === "ready" && (
+            <div>
+              <p className="text-xs font-bold uppercase tracking-[0.25em] text-accent/80">
+                Quieter times
+              </p>
+              {quietTimesLoading && (
+                <p className="mt-2 text-sm text-white/55">
+                  Loading quieter times…
+                </p>
+              )}
+              {!quietTimesLoading && quietTimesError && (
+                <p className="mt-2 text-sm text-red-400/90">{quietTimesError}</p>
+              )}
+              {!quietTimesLoading && !quietTimesError && quietTimesData && (
+                <QuieterTimesSection
+                  originalScore={quietTimesData.original.busynessScore}
+                  originalLevel={quietTimesData.original.busynessLevel}
+                  quietTimes={quietTimesData.quietTimes}
+                />
+              )}
+            </div>
+          )}
 
           {selection.location.address && (
             <div>
