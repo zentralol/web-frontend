@@ -50,6 +50,53 @@ function LocationPanelSkeleton() {
   );
 }
 
+function BusynessForecastSkeleton() {
+  return (
+    <div
+      className="mt-2 animate-pulse space-y-3"
+      aria-label="Loading next 6 hours"
+      aria-busy="true"
+    >
+      <div className="flex gap-2">
+        <div className="h-5 w-20 rounded bg-white/15" />
+        <div className="h-5 w-16 rounded bg-white/10" />
+      </div>
+      <div>
+        <p className="text-xs uppercase tracking-[0.15em] text-accent/70">
+          Next 6 hours
+        </p>
+        <div className="mt-3 flex h-16 items-end gap-2" aria-hidden="true">
+          {[40, 56, 32, 64, 48, 36].map((height, index) => (
+            <div
+              key={index}
+              className="flex-1 rounded-t bg-white/10"
+              style={{ height: `${height}px` }}
+            />
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function QuieterTimesSkeleton() {
+  return (
+    <div
+      className="mt-2 animate-pulse space-y-2"
+      aria-label="Loading quieter times"
+      aria-busy="true"
+    >
+      {["w-full", "w-5/6", "w-2/3"].map((width) => (
+        <div
+          key={width}
+          className={`h-9 rounded-lg bg-white/10 ${width}`}
+          aria-hidden="true"
+        />
+      ))}
+    </div>
+  );
+}
+
 export function LocationPanelContent({
   selection,
   onBack,
@@ -147,7 +194,9 @@ export function LocationPanelContent({
             <p className="text-xs font-bold uppercase tracking-[0.25em] text-accent/80">
               Busyness
             </p>
-            {selection.location.busyness ||
+            {selection.location.busynessLoading ? (
+              <BusynessForecastSkeleton />
+            ) : selection.location.busyness ||
             (selection.location.forecast &&
               selection.location.forecast.length > 0) ? (
               <div className="mt-2 space-y-3">
@@ -194,9 +243,7 @@ export function LocationPanelContent({
                 Quieter times
               </p>
               {quietTimesLoading && (
-                <p className="mt-2 text-sm text-white/55">
-                  Loading quieter times…
-                </p>
+                <QuieterTimesSkeleton />
               )}
               {!quietTimesLoading && quietTimesError && (
                 <p className="mt-2 text-sm text-red-400/90">{quietTimesError}</p>

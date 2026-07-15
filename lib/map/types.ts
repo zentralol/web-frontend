@@ -18,6 +18,7 @@ export type SelectedLocation = {
     confidence?: number;
   };
   forecast?: ForecastPoint[];
+  busynessLoading?: boolean;
   busynessError?: string;
 };
 

@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 
-import { act, cleanup, render } from "@testing-library/react";
+import { act, cleanup, render, screen } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 import type { AttractionBrowsePanelProps } from "./AttractionBrowsePanel";
 import LocationPanel from "./LocationPanel";
@@ -109,5 +109,49 @@ describe("LocationPanel quieter-times loading", () => {
     expect(aside?.className).toContain("overflow-hidden");
     expect(detailScroller?.className).toContain("min-h-0");
     expect(detailScroller?.className).toContain("overflow-y-auto");
+  });
+
+  test("replaces the previous location's quieter times with a fresh placeholder", async () => {
+    const { rerender } = render(
+      <LocationPanel
+        selection={{
+          status: "ready",
+          location: {
+            name: "Bryant Park",
+            lat: 40.7536,
+            lng: -73.9832,
+            source: "map",
+          },
+        }}
+        browsePanelProps={{} as AttractionBrowsePanelProps}
+      />,
+    );
+
+    await act(async () => {
+      await vi.runAllTimersAsync();
+    });
+
+    expect(screen.getAllByText(/No quiet windows/).length).toBeGreaterThan(0);
+    mocks.fetchQuietTimes.mockImplementationOnce(() => new Promise(() => {}));
+
+    rerender(
+      <LocationPanel
+        selection={{
+          status: "ready",
+          location: {
+            name: "Central Park",
+            lat: 40.7812,
+            lng: -73.9665,
+            source: "map",
+          },
+        }}
+        browsePanelProps={{} as AttractionBrowsePanelProps}
+      />,
+    );
+
+    expect(screen.queryByText(/No quiet windows/)).toBeNull();
+    expect(
+      screen.getAllByLabelText("Loading quieter times").length,
+    ).toBeGreaterThan(0);
   });
 });
