@@ -21,6 +21,13 @@ type LocationPanelProps = {
   onFavoriteChange?: (placeKey: string, isFavorite: boolean) => void;
 };
 
+type QuietTimesRequestState = {
+  selectionKey: string | null;
+  loading: boolean;
+  data: QuietTimesResponse | null;
+  error: string | null;
+};
+
 export default function LocationPanel({
   selection,
   onDismiss,
@@ -31,11 +38,19 @@ export default function LocationPanel({
 }: LocationPanelProps) {
   const isIdle = selection.status === "idle";
   const backendFetch = useAuthenticatedBackendFetch();
-  const [quietTimesData, setQuietTimesData] = useState<QuietTimesResponse | null>(null);
-  const [quietTimesLoading, setQuietTimesLoading] = useState(false);
-  const [quietTimesError, setQuietTimesError] = useState<string | null>(null);
+  const [quietTimesRequest, setQuietTimesRequest] =
+    useState<QuietTimesRequestState>({
+      selectionKey: null,
+      loading: false,
+      data: null,
+      error: null,
+    });
   const selectedLat = selection.status === "ready" ? selection.location.lat : null;
   const selectedLng = selection.status === "ready" ? selection.location.lng : null;
+  const selectedLocationKey =
+    selectedLat == null || selectedLng == null
+      ? null
+      : `${selectedLat}:${selectedLng}`;
 
   useEffect(() => {
     if (selectedLat == null || selectedLng == null) {
@@ -45,9 +60,12 @@ export default function LocationPanel({
     let cancelled = false;
 
     void (async () => {
-      setQuietTimesLoading(true);
-      setQuietTimesData(null);
-      setQuietTimesError(null);
+      setQuietTimesRequest({
+        selectionKey: selectedLocationKey,
+        loading: true,
+        data: null,
+        error: null,
+      });
       try {
         const now = new Date();
         const currentTime = formatInNewYork(now);
@@ -64,33 +82,50 @@ export default function LocationPanel({
         );
         if (cancelled) return;
         if (result.ok) {
-          setQuietTimesData(result.data);
+          setQuietTimesRequest({
+            selectionKey: selectedLocationKey,
+            loading: false,
+            data: result.data,
+            error: null,
+          });
         } else {
-          setQuietTimesError(result.error);
+          setQuietTimesRequest({
+            selectionKey: selectedLocationKey,
+            loading: false,
+            data: null,
+            error: result.error,
+          });
         }
       } catch (error) {
         if (cancelled) return;
-        setQuietTimesError(
-          error instanceof Error
-            ? error.message
-            : "Could not load quieter times.",
-        );
-      } finally {
-        if (!cancelled) {
-          setQuietTimesLoading(false);
-        }
+        setQuietTimesRequest({
+          selectionKey: selectedLocationKey,
+          loading: false,
+          data: null,
+          error:
+            error instanceof Error
+              ? error.message
+              : "Could not load quieter times.",
+        });
       }
     })();
 
     return () => {
       cancelled = true;
     };
-  }, [selectedLat, selectedLng, backendFetch]);
+  }, [selectedLat, selectedLng, selectedLocationKey, backendFetch]);
+
+  const quietTimesForSelection =
+    quietTimesRequest.selectionKey === selectedLocationKey
+      ? quietTimesRequest
+      : null;
 
   const quietTimesProps = {
-    quietTimesData,
-    quietTimesLoading,
-    quietTimesError,
+    quietTimesData: quietTimesForSelection?.data ?? null,
+    quietTimesLoading:
+      selectedLocationKey !== null &&
+      (quietTimesForSelection?.loading ?? true),
+    quietTimesError: quietTimesForSelection?.error ?? null,
   };
 
   return (

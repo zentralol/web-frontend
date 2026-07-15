@@ -11,6 +11,7 @@ import type {
   RecommendationsRequest,
   QuietTimesRequest,
 } from "./types";
+import { isQuietTime } from "./quietTimes";
 
 type ApiErrorPayload = {
   success?: boolean;
@@ -202,7 +203,8 @@ export async function fetchQuietTimes(
 
     const mappedQuietTimes = quietTimes
       .map(mapQuietTime)
-      .filter((item): item is QuietTime => item !== null);
+      .filter((item): item is QuietTime => item !== null)
+      .filter(isQuietTime);
 
     return {
       ok: true,

@@ -17,7 +17,10 @@ import { fetchLocationDetails } from "@/lib/map/fetchLocationDetails";
 import { fetchBusynessData } from "@/lib/map/fetchPredictions";
 import type { HeatmapPoint } from "@/lib/map/fetchHeatmap";
 import type { HeatmapTimeOption } from "@/lib/map/heatmapTimeOptions";
-import type { LocationSelectionState } from "@/lib/map/types";
+import type {
+  LocationSelectionState,
+  SelectedLocation,
+} from "@/lib/map/types";
 import FitAttractionBounds from "@/components/map/FitAttractionBounds";
 import HeatmapLayer from "@/components/map/HeatmapLayer";
 import MapControls from "@/components/map/MapControls";
@@ -37,6 +40,21 @@ type PendingSelection =
       kind: "attraction";
       attraction: Attraction;
     };
+
+function selectedLocationFromAttraction(
+  attraction: Attraction,
+): SelectedLocation {
+  return {
+    lat: attraction.lat,
+    lng: attraction.lng,
+    name: attraction.name,
+    category: attraction.category,
+    neighborhood: attraction.neighborhood,
+    description: attraction.description,
+    attractionId: attraction.id,
+    source: "attraction",
+  };
+}
 
 export type MapViewProps = {
   attractions: Attraction[];
@@ -138,12 +156,19 @@ function MapContent({
     (attraction: Attraction) => {
       onAttractionInteract(attraction);
       onLoadingStart(attraction.lat, attraction.lng);
+      onSelectionChange({
+        status: "ready",
+        location: {
+          ...selectedLocationFromAttraction(attraction),
+          busynessLoading: true,
+        },
+      });
       setPendingSelection({
         kind: "attraction",
         attraction,
       });
     },
-    [onAttractionInteract, onLoadingStart],
+    [onAttractionInteract, onLoadingStart, onSelectionChange],
   );
 
   useEffect(() => {
@@ -199,16 +224,7 @@ function MapContent({
       try {
         if (pendingSelection.kind === "attraction") {
           const attraction = pendingSelection.attraction;
-          const location = {
-            lat: attraction.lat,
-            lng: attraction.lng,
-            name: attraction.name,
-            category: attraction.category,
-            neighborhood: attraction.neighborhood,
-            description: attraction.description,
-            attractionId: attraction.id,
-            source: "attraction" as const,
-          };
+          const location = selectedLocationFromAttraction(attraction);
           const busynessData = await fetchBusynessData(
             attraction.lat,
             attraction.lng,
@@ -220,6 +236,7 @@ function MapContent({
             location: {
               ...location,
               ...busynessData,
+              busynessLoading: false,
             },
           });
           return;
@@ -233,14 +250,25 @@ function MapContent({
           geocodingLib,
         );
         if (cancelled) return;
+        const baseLocation: SelectedLocation = {
+          ...location,
+          source: "map",
+        };
+        onSelectionChange({
+          status: "ready",
+          location: {
+            ...baseLocation,
+            busynessLoading: true,
+          },
+        });
         const busynessData = await fetchBusynessData(lat, lng, backendFetch);
         if (cancelled) return;
         onSelectionChange({
           status: "ready",
           location: {
-            ...location,
-            source: "map",
+            ...baseLocation,
             ...busynessData,
+            busynessLoading: false,
           },
         });
       } catch {
