@@ -172,10 +172,31 @@ describe("fetchQuietTimes", () => {
             },
             quietTimes: [
               {
-                targetTime: "2026-07-01T10:00:00-04:00",
-                busynessScore: 42,
-                busynessLevel: "moderate",
+                targetTime: "2026-07-01T09:00:00-04:00",
+                busynessScore: 20,
+                busynessLevel: "very_quiet",
                 confidence: 0.68,
+                reason: "Predicted crowd score is lower than the selected time.",
+              },
+              {
+                targetTime: "2026-07-01T10:00:00-04:00",
+                busynessScore: 40,
+                busynessLevel: "quiet",
+                confidence: 0.66,
+                reason: "Predicted crowd score is lower than the selected time.",
+              },
+              {
+                targetTime: "2026-07-01T11:00:00-04:00",
+                busynessScore: 41,
+                busynessLevel: "moderate",
+                confidence: 0.64,
+                reason: "Predicted crowd score is lower than the selected time.",
+              },
+              {
+                targetTime: "2026-07-01T12:00:00-04:00",
+                busynessScore: 60,
+                busynessLevel: "moderate",
+                confidence: 0.62,
                 reason: "Predicted crowd score is lower than the selected time.",
               },
             ],
@@ -190,7 +211,7 @@ describe("fetchQuietTimes", () => {
         targetTime: "2026-07-01T16:30:00-04:00",
         startTime: "2026-07-01T09:00:00-04:00",
         endTime: "2026-07-01T21:00:00-04:00",
-        limit: 2,
+        limit: 4,
       },
       backendFetch,
     );
@@ -203,14 +224,22 @@ describe("fetchQuietTimes", () => {
       busynessScore: 86,
       busynessLevel: "very_busy",
     });
-    expect(result.data.quietTimes).toHaveLength(1);
+    expect(result.data.quietTimes).toHaveLength(2);
     expect(result.data.quietTimes[0]).toMatchObject({
-      targetTime: "2026-07-01T10:00:00-04:00",
-      busynessScore: 42,
-      busynessLevel: "moderate",
+      targetTime: "2026-07-01T09:00:00-04:00",
+      busynessScore: 20,
+      busynessLevel: "very_quiet",
       confidence: 0.68,
       reason: "Predicted crowd score is lower than the selected time.",
     });
+    expect(result.data.quietTimes[1]).toMatchObject({
+      targetTime: "2026-07-01T10:00:00-04:00",
+      busynessScore: 40,
+      busynessLevel: "quiet",
+    });
+    expect(result.data.quietTimes.map((item) => item.busynessScore)).toEqual([
+      20, 40,
+    ]);
 
     expect(backendFetch).toHaveBeenCalledTimes(1);
     const [url, init] = backendFetch.mock.calls[0];
@@ -222,7 +251,7 @@ describe("fetchQuietTimes", () => {
       targetTime: "2026-07-01T16:30:00-04:00",
       startTime: "2026-07-01T09:00:00-04:00",
       endTime: "2026-07-01T21:00:00-04:00",
-      limit: 2,
+      limit: 4,
     });
   });
 

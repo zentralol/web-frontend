@@ -5,6 +5,7 @@ import {
 } from "@/lib/activity/busynessDisplay";
 import { toForecastTimeLabel } from "@/lib/map/fetchPredictions";
 import type { QuietTime } from "@/lib/recommendations/types";
+import { QUIET_TIME_MAX_BUSYNESS_SCORE } from "@/lib/recommendations/quietTimes";
 
 type QuieterTimesSectionProps = {
   originalScore: number;
@@ -21,7 +22,8 @@ export function QuieterTimesSection({
     return (
       <div className="mt-4 rounded-lg border border-white/5 bg-white/[0.02] p-4">
         <p className="text-sm text-white/55">
-          No quieter windows found in the next 24 hours.
+          No quiet windows with a score of {QUIET_TIME_MAX_BUSYNESS_SCORE} or
+          below were found in the next 24 hours.
         </p>
       </div>
     );
@@ -31,7 +33,7 @@ export function QuieterTimesSection({
     <div className="mt-4 space-y-2">
       <div className="flex items-center justify-between">
         <span className="text-xs uppercase tracking-[0.15em] text-accent/70">
-          Quieter times
+          Score {QUIET_TIME_MAX_BUSYNESS_SCORE} or below
         </span>
         <span className="text-[10px] text-white/40">
           Now: {originalScore}{" "}
