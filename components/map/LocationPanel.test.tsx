@@ -84,4 +84,30 @@ describe("LocationPanel quieter-times loading", () => {
       endTime: "2026-07-11T15:24:00",
     });
   });
+
+  test("keeps desktop location details inside an independent scroll region", () => {
+    const { container } = render(
+      <LocationPanel
+        selection={{
+          status: "ready",
+          location: {
+            name: "Bryant Park",
+            lat: 40.7536,
+            lng: -73.9832,
+            source: "map",
+          },
+        }}
+        browsePanelProps={{} as AttractionBrowsePanelProps}
+      />,
+    );
+
+    const aside = container.querySelector("aside");
+    const detailScroller = container.querySelector(
+      '[data-testid="desktop-location-detail-scroller"]',
+    );
+
+    expect(aside?.className).toContain("overflow-hidden");
+    expect(detailScroller?.className).toContain("min-h-0");
+    expect(detailScroller?.className).toContain("overflow-y-auto");
+  });
 });

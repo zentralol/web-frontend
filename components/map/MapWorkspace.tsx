@@ -32,6 +32,7 @@ import {
 import type { TravelInterest } from "@/lib/onboarding/types";
 import type { LocationSelectionState } from "@/lib/map/types";
 import { formatInNewYork } from "@/lib/time/manhattanTime";
+import { parseLocationDeepLink } from "@/lib/map/locationDeepLink";
 
 const DRAG_THRESHOLD_PX = 5;
 const HEATMAP_FETCH_DEBOUNCE_MS = 300;
@@ -47,14 +48,25 @@ type MapWorkspaceProps = {
   userInterests?: TravelInterest[];
   initialAttractions?: Attraction[];
   initialLoadState?: AttractionsLoadState;
+  initialFavoritePlaceKeys?: string[];
 };
 
 export default function MapWorkspace({
   userInterests = [],
   initialAttractions = [],
   initialLoadState = "ready",
+  initialFavoritePlaceKeys = [],
 }: MapWorkspaceProps) {
   const searchParams = useSearchParams();
+  const initialCoordinateSelection = useMemo(
+    () => {
+      const location = parseLocationDeepLink(searchParams);
+      return location
+        ? ({ status: "ready", location } satisfies LocationSelectionState)
+        : null;
+    },
+    [searchParams],
+  );
   const [attractions, setAttractions] = useState<Attraction[]>(initialAttractions);
   const [loadState, setLoadState] = useState<AttractionsLoadState>(initialLoadState);
   const [loadError, setLoadError] = useState<string | null>(() =>
@@ -71,13 +83,24 @@ export default function MapWorkspace({
   const [nearMeError, setNearMeError] = useState<string | null>(null);
   const [locatingNearMe, setLocatingNearMe] = useState(false);
   const [highlightedId, setHighlightedId] = useState<number | null>(null);
-  const [focusTarget, setFocusTarget] = useState<{ lat: number; lng: number } | null>(
-    null,
-  );
-  const [selection, setSelection] = useState<LocationSelectionState>({
-    status: "idle",
+  const [focusTarget, setFocusTarget] = useState<{
+    lat: number;
+    lng: number;
+  } | null>(() => {
+    const initial = initialCoordinateSelection;
+    return initial?.status === "ready"
+      ? { lat: initial.location.lat, lng: initial.location.lng }
+      : null;
   });
-  const [fitBoundsEnabled, setFitBoundsEnabled] = useState(true);
+  const [selection, setSelection] = useState<LocationSelectionState>(
+    () => initialCoordinateSelection ?? { status: "idle" },
+  );
+  const [favoritePlaceKeys, setFavoritePlaceKeys] = useState(
+    initialFavoritePlaceKeys,
+  );
+  const [fitBoundsEnabled, setFitBoundsEnabled] = useState(
+    initialCoordinateSelection === null,
+  );
   const [heatmapEnabled, setHeatmapEnabled] = useState(false);
   const [selectedHeatmapTimeId, setSelectedHeatmapTimeId] = useState("now");
   const [heatmapTargetTime, setHeatmapTargetTime] = useState(() =>
@@ -363,6 +386,18 @@ export default function MapWorkspace({
     handleDismiss();
   }, [handleDismiss]);
 
+  const handleFavoriteChange = useCallback(
+    (placeKey: string, isFavorite: boolean) => {
+      setFavoritePlaceKeys((current) => {
+        if (isFavorite) {
+          return current.includes(placeKey) ? current : [...current, placeKey];
+        }
+        return current.filter((key) => key !== placeKey);
+      });
+    },
+    [],
+  );
+
   const handleNearMe = useCallback(async () => {
     setNearMeError(null);
     setLocatingNearMe(true);
@@ -511,9 +546,9 @@ export default function MapWorkspace({
   const isDetailActive = selection.status !== "idle";
 
   return (
-    <div className="relative h-[calc(100vh-var(--viewport-top))] lg:flex">
+    <div className="fixed inset-x-0 bottom-0 top-[var(--viewport-top)] min-h-0 overflow-hidden lg:flex">
       <div
-        className="absolute inset-0 lg:relative lg:min-w-0 lg:flex-1"
+        className="absolute inset-0 overflow-hidden lg:relative lg:h-full lg:min-h-0 lg:min-w-0 lg:flex-1"
         onPointerDown={handleMapPointerDown}
       >
         <MapView
@@ -543,6 +578,8 @@ export default function MapWorkspace({
         onDismiss={handleDismiss}
         onBack={handleBack}
         browsePanelProps={browsePanelProps}
+        favoritePlaceKeys={favoritePlaceKeys}
+        onFavoriteChange={handleFavoriteChange}
       />
       {!isDetailActive && (
         <AttractionBrowseBottomSheet {...browsePanelProps} />

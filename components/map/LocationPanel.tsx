@@ -17,6 +17,8 @@ type LocationPanelProps = {
   onDismiss?: () => void;
   onBack?: () => void;
   browsePanelProps: AttractionBrowsePanelProps;
+  favoritePlaceKeys?: string[];
+  onFavoriteChange?: (placeKey: string, isFavorite: boolean) => void;
 };
 
 export default function LocationPanel({
@@ -24,6 +26,8 @@ export default function LocationPanel({
   onDismiss,
   onBack,
   browsePanelProps,
+  favoritePlaceKeys = [],
+  onFavoriteChange,
 }: LocationPanelProps) {
   const isIdle = selection.status === "idle";
   const backendFetch = useAuthenticatedBackendFetch();
@@ -91,21 +95,30 @@ export default function LocationPanel({
 
   return (
     <>
-      <aside className="hidden w-96 shrink-0 flex-col border-l border-white/10 bg-surface p-6 lg:flex">
+      <aside className="hidden h-full min-h-0 w-96 shrink-0 flex-col overflow-hidden border-l border-white/10 bg-surface p-6 lg:flex">
         {isIdle ? (
           <AttractionBrowsePanel {...browsePanelProps} />
         ) : (
-          <LocationPanelContent
-            selection={selection}
-            onBack={onBack}
-            {...quietTimesProps}
-          />
+          <div
+            data-testid="desktop-location-detail-scroller"
+            className="min-h-0 flex-1 overflow-y-auto overscroll-contain pr-1"
+          >
+            <LocationPanelContent
+              selection={selection}
+              onBack={onBack}
+              favoritePlaceKeys={favoritePlaceKeys}
+              onFavoriteChange={onFavoriteChange}
+              {...quietTimesProps}
+            />
+          </div>
         )}
       </aside>
       <LocationBottomSheet
         selection={selection}
         onDismiss={onDismiss}
         onBack={onBack}
+        favoritePlaceKeys={favoritePlaceKeys}
+        onFavoriteChange={onFavoriteChange}
         {...quietTimesProps}
       />
     </>

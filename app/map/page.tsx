@@ -5,6 +5,7 @@ import MapWorkspace from "@/components/map/MapWorkspace";
 import { listAttractions } from "@/lib/attractions/queries";
 import { getOnboardingPreferences } from "@/lib/onboarding/queries";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
+import { listFavoritePlaceKeys } from "@/lib/favorites/queries";
 
 export default async function MapPage() {
   const { userId } = await auth();
@@ -22,6 +23,10 @@ export default async function MapPage() {
 
   let initialAttractions: Awaited<ReturnType<typeof listAttractions>> = [];
   let initialLoadState: "ready" | "empty" | "error" = "empty";
+  const favoritePlaceKeysPromise = listFavoritePlaceKeys(
+    supabase,
+    userId,
+  ).catch(() => [] as string[]);
 
   try {
     initialAttractions = await listAttractions(supabase);
@@ -30,6 +35,7 @@ export default async function MapPage() {
     initialAttractions = [];
     initialLoadState = "error";
   }
+  const initialFavoritePlaceKeys = await favoritePlaceKeysPromise;
 
   return (
     <Suspense>
@@ -37,6 +43,7 @@ export default async function MapPage() {
         userInterests={preferences.interests}
         initialAttractions={initialAttractions}
         initialLoadState={initialLoadState}
+        initialFavoritePlaceKeys={initialFavoritePlaceKeys}
       />
     </Suspense>
   );
