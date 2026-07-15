@@ -546,9 +546,9 @@ export default function MapWorkspace({
   const isDetailActive = selection.status !== "idle";
 
   return (
-    <div className="relative h-[calc(100vh-var(--viewport-top))] lg:flex">
+    <div className="fixed inset-x-0 bottom-0 top-[var(--viewport-top)] min-h-0 overflow-hidden lg:flex">
       <div
-        className="absolute inset-0 lg:relative lg:min-w-0 lg:flex-1"
+        className="absolute inset-0 overflow-hidden lg:relative lg:h-full lg:min-h-0 lg:min-w-0 lg:flex-1"
         onPointerDown={handleMapPointerDown}
       >
         <MapView
