@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { ArrowLeft, Navigation, TrendingUp } from "lucide-react";
 import { spaceGrotesk } from "@/app/ui/fonts";
@@ -10,6 +11,11 @@ import {
 } from "@/lib/activity/busynessDisplay";
 import type { LocationSelectionState } from "@/lib/map/types";
 import { ForecastTimeline } from "@/components/shared/ForecastTimeline";
+import { QuieterTimesSection } from "@/components/map/QuieterTimesSection";
+import { useAuthenticatedBackendFetch } from "@/lib/backend/useAuthenticatedBackendFetch";
+import { fetchQuietTimes } from "@/lib/recommendations/fetchRecommendations";
+import type { QuietTimesResponse } from "@/lib/recommendations/types";
+import { formatInNewYork, addHoursInNewYork } from "@/lib/time/manhattanTime";
 
 function formatCoordinate(value: number) {
   return value.toFixed(5);
@@ -49,10 +55,72 @@ function LocationPanelSkeleton() {
 export function LocationPanelContent({
   selection,
   onBack,
+  selectedTargetTime,
+  heatmapEnabled = false,
 }: {
   selection: LocationSelectionState;
   onBack?: () => void;
+  selectedTargetTime: string;
+  heatmapEnabled?: boolean;
 }) {
+  const backendFetch = useAuthenticatedBackendFetch();
+  const [quietTimesData, setQuietTimesData] = useState<QuietTimesResponse | null>(null);
+  const [quietTimesLoading, setQuietTimesLoading] = useState(false);
+  const [quietTimesError, setQuietTimesError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (selection.status !== "ready") {
+      return;
+    }
+
+    let cancelled = false;
+
+    void (async () => {
+      setQuietTimesLoading(true);
+      setQuietTimesError(null);
+      try {
+        const now = new Date();
+        const targetTime = heatmapEnabled
+          ? selectedTargetTime
+          : formatInNewYork(now);
+        const result = await fetchQuietTimes(
+          {
+            lat: selection.location.lat,
+            lng: selection.location.lng,
+            targetTime,
+            startTime: formatInNewYork(now),
+            endTime: formatInNewYork(addHoursInNewYork(now, 24)),
+            limit: 24,
+          },
+          backendFetch,
+        );
+        if (cancelled) return;
+        if (result.ok) {
+          setQuietTimesData(result.data);
+        } else {
+          setQuietTimesData(null);
+          setQuietTimesError(result.error);
+        }
+      } catch (error) {
+        if (cancelled) return;
+        setQuietTimesData(null);
+        setQuietTimesError(
+          error instanceof Error
+            ? error.message
+            : "Could not load quieter times.",
+        );
+      } finally {
+        if (!cancelled) {
+          setQuietTimesLoading(false);
+        }
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [selection, selectedTargetTime, heatmapEnabled, backendFetch]);
+
   return (
     <>
       {onBack && selection.status !== "idle" && (
@@ -173,6 +241,29 @@ export function LocationPanelContent({
               </p>
             )}
           </div>
+
+          {selection.status === "ready" && (
+            <div>
+              <p className="text-xs font-bold uppercase tracking-[0.25em] text-accent/80">
+                Quieter times
+              </p>
+              {quietTimesLoading && (
+                <p className="mt-2 text-sm text-white/55">
+                  Loading quieter times…
+                </p>
+              )}
+              {!quietTimesLoading && quietTimesError && (
+                <p className="mt-2 text-sm text-red-400/90">{quietTimesError}</p>
+              )}
+              {!quietTimesLoading && !quietTimesError && quietTimesData && (
+                <QuieterTimesSection
+                  originalScore={quietTimesData.original.busynessScore}
+                  originalLevel={quietTimesData.original.busynessLevel}
+                  quietTimes={quietTimesData.quietTimes}
+                />
+              )}
+            </div>
+          )}
 
           {selection.location.address && (
             <div>

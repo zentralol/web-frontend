@@ -18,12 +18,16 @@ type LocationBottomSheetProps = {
   selection: LocationSelectionState;
   onDismiss?: () => void;
   onBack?: () => void;
+  selectedTargetTime: string;
+  heatmapEnabled?: boolean;
 };
 
 export default function LocationBottomSheet({
   selection,
   onDismiss,
   onBack,
+  selectedTargetTime,
+  heatmapEnabled = false,
 }: LocationBottomSheetProps) {
   const [present, setPresent] = useState(false);
   const [open, setOpen] = useState(false);
@@ -192,7 +196,12 @@ export default function LocationBottomSheet({
           <div className="h-1 w-10 rounded-full bg-white/20" />
         </div>
         <div className="min-h-0 flex-1 overflow-y-auto px-6 pb-6">
-          <LocationPanelContent selection={selection} onBack={onBack} />
+          <LocationPanelContent
+            selection={selection}
+            onBack={onBack}
+            selectedTargetTime={selectedTargetTime}
+            heatmapEnabled={heatmapEnabled}
+          />
         </div>
       </div>
     </div>

@@ -10,6 +10,8 @@ type LocationPanelProps = {
   onDismiss?: () => void;
   onBack?: () => void;
   browsePanelProps: AttractionBrowsePanelProps;
+  selectedTargetTime: string;
+  heatmapEnabled?: boolean;
 };
 
 export default function LocationPanel({
@@ -17,6 +19,8 @@ export default function LocationPanel({
   onDismiss,
   onBack,
   browsePanelProps,
+  selectedTargetTime,
+  heatmapEnabled = false,
 }: LocationPanelProps) {
   const isIdle = selection.status === "idle";
 
@@ -26,13 +30,20 @@ export default function LocationPanel({
         {isIdle ? (
           <AttractionBrowsePanel {...browsePanelProps} />
         ) : (
-          <LocationPanelContent selection={selection} onBack={onBack} />
+          <LocationPanelContent
+            selection={selection}
+            onBack={onBack}
+            selectedTargetTime={selectedTargetTime}
+            heatmapEnabled={heatmapEnabled}
+          />
         )}
       </aside>
       <LocationBottomSheet
         selection={selection}
         onDismiss={onDismiss}
         onBack={onBack}
+        selectedTargetTime={selectedTargetTime}
+        heatmapEnabled={heatmapEnabled}
       />
     </>
   );
