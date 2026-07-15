@@ -380,6 +380,9 @@ export default function MapWorkspace({
   }, []);
 
   const handleQuietAreas = useCallback(async () => {
+    if (sortMode === "quiet_areas") {
+      return;
+    }
     setQuietAreasError(null);
     if (userCoords) {
       setSortMode("quiet_areas");
@@ -401,7 +404,7 @@ export default function MapWorkspace({
     } finally {
       setLocatingQuietAreas(false);
     }
-  }, [userCoords]);
+  }, [sortMode, userCoords]);
 
   const handleSelectQuietArea = useCallback(
     (area: QuieterAreaRecommendation) => {
@@ -478,11 +481,6 @@ export default function MapWorkspace({
     }
   }, []);
 
-  const selectedTargetTime = useMemo(
-    () => (heatmapEnabled ? heatmapTargetTime : formatInNewYork(new Date())),
-    [heatmapEnabled, heatmapTargetTime],
-  );
-
   const browsePanelProps = {
     loadState,
     loadError,
@@ -545,8 +543,6 @@ export default function MapWorkspace({
         onDismiss={handleDismiss}
         onBack={handleBack}
         browsePanelProps={browsePanelProps}
-        selectedTargetTime={selectedTargetTime}
-        heatmapEnabled={heatmapEnabled}
       />
       {!isDetailActive && (
         <AttractionBrowseBottomSheet {...browsePanelProps} />

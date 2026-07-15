@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { LocationPanelContent } from "@/components/map/LocationPanelContent";
 import type { LocationSelectionState } from "@/lib/map/types";
+import type { QuietTimesResponse } from "@/lib/recommendations/types";
 
 type Snap = "half" | "full";
 
@@ -18,16 +19,18 @@ type LocationBottomSheetProps = {
   selection: LocationSelectionState;
   onDismiss?: () => void;
   onBack?: () => void;
-  selectedTargetTime: string;
-  heatmapEnabled?: boolean;
+  quietTimesData?: QuietTimesResponse | null;
+  quietTimesLoading?: boolean;
+  quietTimesError?: string | null;
 };
 
 export default function LocationBottomSheet({
   selection,
   onDismiss,
   onBack,
-  selectedTargetTime,
-  heatmapEnabled = false,
+  quietTimesData,
+  quietTimesLoading,
+  quietTimesError,
 }: LocationBottomSheetProps) {
   const [present, setPresent] = useState(false);
   const [open, setOpen] = useState(false);
@@ -199,8 +202,9 @@ export default function LocationBottomSheet({
           <LocationPanelContent
             selection={selection}
             onBack={onBack}
-            selectedTargetTime={selectedTargetTime}
-            heatmapEnabled={heatmapEnabled}
+            quietTimesData={quietTimesData}
+            quietTimesLoading={quietTimesLoading}
+            quietTimesError={quietTimesError}
           />
         </div>
       </div>

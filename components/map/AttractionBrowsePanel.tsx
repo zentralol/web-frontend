@@ -182,7 +182,9 @@ export default function AttractionBrowsePanel({
                       return;
                     }
                     if (option.value === "quiet_areas") {
-                      onQuietAreas();
+                      if (!isActive) {
+                        onQuietAreas();
+                      }
                       return;
                     }
                     onSortModeChange(option.value);
@@ -207,11 +209,11 @@ export default function AttractionBrowsePanel({
             })}
           </div>
 
-          {nearMeError && sortMode === "near_me" && (
+          {nearMeError && (
             <p className="mt-2 text-xs text-red-400/90">{nearMeError}</p>
           )}
 
-          {quietAreasError && sortMode === "quiet_areas" && (
+          {quietAreasError && (
             <p className="mt-2 text-xs text-red-400/90">{quietAreasError}</p>
           )}
 
