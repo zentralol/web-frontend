@@ -5,6 +5,7 @@ import { getOnboardingPreferences } from "@/lib/onboarding/queries";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 import { spaceGrotesk } from "@/app/ui/fonts";
 import { SavedPlacesSection } from "@/components/settings/SavedPlacesSection";
+import { FeedbackSection } from "@/components/settings/FeedbackSection";
 import { listFavoritePlaces } from "@/lib/favorites/queries";
 
 export default async function SettingsPage() {
@@ -42,6 +43,7 @@ export default async function SettingsPage() {
       </div>
       <div className="space-y-12">
         <SavedPlacesSection initialPlaces={favoritePlaces} />
+        <FeedbackSection />
         <section
           aria-labelledby="travel-preferences-heading"
           className="border-t border-white/10 pt-10"
