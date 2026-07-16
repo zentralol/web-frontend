@@ -28,13 +28,16 @@ describe("Navbar feedback link", () => {
     render(<Navbar />);
 
     const expectedHref = "mailto:hi@zentra.lol?subject=Zentra%20feedback";
-    expect(screen.getByRole("link", { name: "Feedback" }).getAttribute("href"))
+    const accessibleName = "Email feedback to hi@zentra.lol";
+    expect(screen.getByRole("link", { name: accessibleName }).getAttribute("href"))
       .toBe(expectedHref);
 
     fireEvent.click(screen.getByRole("button", { name: "Open menu" }));
 
-    const feedbackLinks = screen.getAllByRole("link", { name: "Feedback" });
+    const feedbackLinks = screen.getAllByRole("link", { name: accessibleName });
     expect(feedbackLinks).toHaveLength(2);
+    expect(feedbackLinks.every((link) => link.textContent === "hi@zentra.lol"))
+      .toBe(true);
     expect(
       feedbackLinks.every((link) => link.getAttribute("href") === expectedHref),
     ).toBe(true);

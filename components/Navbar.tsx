@@ -130,10 +130,11 @@ export default function Navbar() {
         <div className="flex shrink-0 items-center gap-0.5 sm:gap-1">
           <a
             href={feedbackHref}
+            aria-label="Email feedback to hi@zentra.lol"
             className={`${spaceGrotesk.className} hidden items-center gap-1.5 px-3 py-2 text-[11px] font-bold uppercase tracking-widest text-white/60 transition-colors duration-150 hover:text-accent active:scale-95 sm:flex`}
           >
             <Mail className="h-3.5 w-3.5" aria-hidden="true" />
-            Feedback
+            hi@zentra.lol
           </a>
           <Show when="signed-out">
             <SignInButton mode="modal">
@@ -238,11 +239,12 @@ export default function Navbar() {
             <div className="mt-4 border-t border-white/10 pt-4 sm:hidden">
               <a
                 href={feedbackHref}
+                aria-label="Email feedback to hi@zentra.lol"
                 className={`${tabLinkClass(false)} rounded-xl px-3 py-3 hover:bg-white/5`}
                 onClick={closeMenu}
               >
                 <Mail className="h-4 w-4" aria-hidden="true" />
-                Feedback
+                hi@zentra.lol
               </a>
               <Show when="signed-out">
                 <div className="flex flex-col gap-1">
