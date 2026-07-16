@@ -13,6 +13,7 @@ import {
   Settings,
   LogIn,
   UserPlus,
+  Mail,
   Menu,
   X,
 } from "lucide-react";
@@ -31,6 +32,8 @@ const tabs = [
   { id: "assistant", href: "/assistant", name: "Assistant", icon: MessageSquare },
   { id: "activity", href: "/activity", name: "Activity", icon: BarChart3 },
 ];
+
+const feedbackHref = "mailto:hi@zentra.lol?subject=Zentra%20feedback";
 
 const tabLinkClass = (isActive: boolean) =>
   `${spaceGrotesk.className} flex items-center gap-3 text-[12px] font-bold uppercase tracking-widest transition-all duration-300 ${
@@ -125,6 +128,13 @@ export default function Navbar() {
         </nav>
 
         <div className="flex shrink-0 items-center gap-0.5 sm:gap-1">
+          <a
+            href={feedbackHref}
+            className={`${spaceGrotesk.className} hidden items-center gap-1.5 px-3 py-2 text-[11px] font-bold uppercase tracking-widest text-white/60 transition-colors duration-150 hover:text-accent active:scale-95 sm:flex`}
+          >
+            <Mail className="h-3.5 w-3.5" aria-hidden="true" />
+            Feedback
+          </a>
           <Show when="signed-out">
             <SignInButton mode="modal">
               <button
@@ -226,6 +236,14 @@ export default function Navbar() {
             </ul>
 
             <div className="mt-4 border-t border-white/10 pt-4 sm:hidden">
+              <a
+                href={feedbackHref}
+                className={`${tabLinkClass(false)} rounded-xl px-3 py-3 hover:bg-white/5`}
+                onClick={closeMenu}
+              >
+                <Mail className="h-4 w-4" aria-hidden="true" />
+                Feedback
+              </a>
               <Show when="signed-out">
                 <div className="flex flex-col gap-1">
                   <SignInButton mode="modal">
