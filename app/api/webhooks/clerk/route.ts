@@ -6,10 +6,7 @@ import {
   submitMxrouteEmail,
   validateMxrouteConfiguration,
 } from "@/lib/email/mxroute";
-import {
-  buildOnboardingUrl,
-  renderWelcomeEmail,
-} from "@/lib/email/welcomeEmail";
+import { renderWelcomeEmail } from "@/lib/email/welcomeEmail";
 import { createWelcomeEmailDeliveryStore } from "@/lib/email/welcomeDelivery";
 
 export const runtime = "nodejs";
@@ -108,12 +105,8 @@ export async function handleClerkWebhook(
   let email: ReturnType<typeof renderWelcomeEmail>;
 
   try {
-    const onboardingUrl = buildOnboardingUrl(
-      process.env.APP_BASE_URL ?? "",
-    );
     email = renderWelcomeEmail({
       firstName: event.data.first_name,
-      onboardingUrl,
     });
     dependencies.validateEmailConfiguration();
   } catch (error) {

@@ -1,10 +1,9 @@
 import type { WebhookEvent } from "@clerk/nextjs/webhooks";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { MxrouteSubmissionError, submitMxrouteEmail } from "@/lib/email/mxroute";
 import type { WelcomeEmailReservation } from "@/lib/email/welcomeDelivery";
 import { handleClerkWebhook } from "./route";
 
-const ORIGINAL_APP_BASE_URL = process.env.APP_BASE_URL;
 const ATTEMPT_TOKEN = "11111111-1111-4111-8111-111111111111";
 
 function userCreatedEvent(
@@ -68,16 +67,7 @@ async function responseBody(response: Response) {
 }
 
 describe("Clerk welcome email webhook", () => {
-  beforeEach(() => {
-    process.env.APP_BASE_URL = "https://zentra.example";
-  });
-
   afterEach(() => {
-    if (ORIGINAL_APP_BASE_URL === undefined) {
-      delete process.env.APP_BASE_URL;
-    } else {
-      process.env.APP_BASE_URL = ORIGINAL_APP_BASE_URL;
-    }
     vi.restoreAllMocks();
   });
 
@@ -173,7 +163,7 @@ describe("Clerk welcome email webhook", () => {
       expect.objectContaining({
         to: "kai@example.com",
         subject: "Welcome to Zentra",
-        html: expect.stringContaining("https://zentra.example/onboarding"),
+        html: expect.stringContaining("mailto:hi@zentra.lol"),
       }),
     );
     expect(harness.store.markSubmitting).toHaveBeenCalledWith(
