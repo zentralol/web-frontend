@@ -8,9 +8,12 @@ const ORIGINAL_APP_BASE_URL = process.env.APP_BASE_URL;
 const ATTEMPT_TOKEN = "11111111-1111-4111-8111-111111111111";
 
 function userCreatedEvent(
-  options: { verified?: boolean; primaryEmail?: boolean } = {},
+  options: {
+    verification?: "verified" | "unverified" | null;
+    primaryEmail?: boolean;
+  } = {},
 ): WebhookEvent {
-  const { verified = true, primaryEmail = true } = options;
+  const { verification = "verified", primaryEmail = true } = options;
 
   return {
     type: "user.created",
@@ -22,9 +25,8 @@ function userCreatedEvent(
         {
           id: "email_123",
           email_address: "kai@example.com",
-          verification: {
-            status: verified ? "verified" : "unverified",
-          },
+          verification:
+            verification === null ? null : { status: verification },
         },
       ],
     },
@@ -112,21 +114,43 @@ describe("Clerk welcome email webhook", () => {
     expect(harness.dependencies.createDeliveryStore).not.toHaveBeenCalled();
   });
 
-  it("does not send when the primary email is missing or unverified", async () => {
-    for (const event of [
-      userCreatedEvent({ primaryEmail: false }),
-      userCreatedEvent({ verified: false }),
-    ]) {
-      const harness = createHarness(event);
+  it("does not send when the primary email is missing", async () => {
+    const harness = createHarness(userCreatedEvent({ primaryEmail: false }));
+    const response = await handleClerkWebhook(
+      new Request("https://zentra.example/api/webhooks/clerk"),
+      harness.dependencies,
+    );
+
+    await expect(responseBody(response)).resolves.toEqual({
+      status: "skipped_no_primary_email",
+    });
+    expect(harness.submitEmail).not.toHaveBeenCalled();
+    expect(harness.logger.info).toHaveBeenCalledWith(
+      "welcome_email_skipped_no_primary_email",
+      {
+        clerkUserId: "user_123",
+        emailAddressCount: 1,
+        primaryEmailAddressIdPresent: false,
+      },
+    );
+  });
+
+  it("sends to the primary email without requiring Clerk verification", async () => {
+    for (const verification of ["unverified", null] as const) {
+      const harness = createHarness(userCreatedEvent({ verification }));
       const response = await handleClerkWebhook(
         new Request("https://zentra.example/api/webhooks/clerk"),
         harness.dependencies,
       );
 
       await expect(responseBody(response)).resolves.toEqual({
-        status: "skipped_no_verified_email",
+        status: "submitted",
       });
-      expect(harness.submitEmail).not.toHaveBeenCalled();
+      expect(harness.store.reserve).toHaveBeenCalledWith(
+        "user_123",
+        "kai@example.com",
+      );
+      expect(harness.submitEmail).toHaveBeenCalledOnce();
     }
   });
 

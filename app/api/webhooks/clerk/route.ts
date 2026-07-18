@@ -61,11 +61,17 @@ export async function handleClerkWebhook(
     (email) => email.id === event.data.primary_email_address_id,
   );
 
-  if (!primaryEmail || primaryEmail.verification?.status !== "verified") {
-    dependencies.logger.info("welcome_email_skipped_no_verified_email", {
+  // Product policy: registration triggers the welcome email even when Clerk
+  // does not require or has not recorded primary-email verification.
+  if (!primaryEmail) {
+    dependencies.logger.info("welcome_email_skipped_no_primary_email", {
       clerkUserId: event.data.id,
+      emailAddressCount: event.data.email_addresses.length,
+      primaryEmailAddressIdPresent: Boolean(
+        event.data.primary_email_address_id,
+      ),
     });
-    return jsonResponse("skipped_no_verified_email");
+    return jsonResponse("skipped_no_primary_email");
   }
 
   let store: DeliveryStore;
