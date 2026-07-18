@@ -9,6 +9,7 @@ const isPublicRoute = createRouteMatcher([
   "/",
   "/sign-in(.*)",
   "/sign-up(.*)",
+  "/api/webhooks/clerk(.*)",
 ]);
 
 async function hasCompletedOnboarding(
