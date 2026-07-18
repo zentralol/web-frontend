@@ -5,7 +5,7 @@ import { WELCOME_EMAIL_KIND } from "./welcomeEmail";
 const TABLE_NAME = "welcome_email_deliveries";
 const UNIQUE_VIOLATION = "23505";
 const MAX_ERROR_LENGTH = 1_000;
-const RESERVATION_LEASE_MS = 10 * 60 * 1_000;
+const ATTEMPT_LEASE_MS = 10 * 60 * 1_000;
 
 type DeliveryStatus =
   | "reserved"
@@ -17,6 +17,7 @@ type DeliveryStatus =
 type DeliveryRow = {
   status: DeliveryStatus;
   attempt_count: number;
+  reservation_token: string;
   lease_expires_at: string | null;
 };
 
@@ -38,7 +39,7 @@ export function createWelcomeEmailDeliveryStore(supabase: SupabaseClient) {
     ): Promise<WelcomeEmailReservation> {
       const attemptToken = randomUUID();
       const leaseExpiresAt = new Date(
-        Date.now() + RESERVATION_LEASE_MS,
+        Date.now() + ATTEMPT_LEASE_MS,
       ).toISOString();
       const { error: insertError } = await supabase.from(TABLE_NAME).insert({
         clerk_user_id: clerkUserId,
@@ -60,7 +61,7 @@ export function createWelcomeEmailDeliveryStore(supabase: SupabaseClient) {
 
       const { data, error: readError } = await supabase
         .from(TABLE_NAME)
-        .select("status, attempt_count, lease_expires_at")
+        .select("status, attempt_count, reservation_token, lease_expires_at")
         .eq("clerk_user_id", clerkUserId)
         .eq("email_kind", WELCOME_EMAIL_KIND)
         .maybeSingle<DeliveryRow>();
@@ -73,28 +74,31 @@ export function createWelcomeEmailDeliveryStore(supabase: SupabaseClient) {
         return { status: "pending" };
       }
 
-      if (data.status === "submitting") {
-        return { status: "indeterminate" };
-      }
+      const hasActiveLease =
+        data.status === "reserved" || data.status === "submitting";
 
-      if (data.status !== "failed" && data.status !== "reserved") {
+      if (data.status !== "failed" && !hasActiveLease) {
         return { status: "duplicate" };
       }
 
       const now = new Date();
 
       if (
-        data.status === "reserved" &&
+        hasActiveLease &&
         data.lease_expires_at &&
         new Date(data.lease_expires_at).getTime() > now.getTime()
       ) {
-        return { status: "pending" };
+        return data.status === "submitting"
+          ? { status: "indeterminate" }
+          : { status: "pending" };
       }
 
-      if (data.status === "reserved" && !data.lease_expires_at) {
-        throw new Error("Reserved welcome email delivery has no lease");
+      if (hasActiveLease && !data.lease_expires_at) {
+        throw new Error("Active welcome email delivery has no lease");
       }
 
+      // MXroute has no idempotency key. Reclaiming an expired submission favors
+      // eventual delivery; a crash after provider acceptance can still duplicate.
       let claim = supabase
         .from(TABLE_NAME)
         .update({
@@ -105,17 +109,18 @@ export function createWelcomeEmailDeliveryStore(supabase: SupabaseClient) {
           last_error: null,
           submitted_at: null,
           lease_expires_at: new Date(
-            now.getTime() + RESERVATION_LEASE_MS,
+            now.getTime() + ATTEMPT_LEASE_MS,
           ).toISOString(),
         })
         .eq("clerk_user_id", clerkUserId)
-        .eq("email_kind", WELCOME_EMAIL_KIND);
+        .eq("email_kind", WELCOME_EMAIL_KIND)
+        .eq("reservation_token", data.reservation_token);
 
       claim =
         data.status === "failed"
           ? claim.eq("status", "failed")
           : claim
-              .eq("status", "reserved")
+              .eq("status", data.status)
               .lte("lease_expires_at", now.toISOString());
 
       const { data: claimed, error: claimError } = await claim
@@ -142,7 +147,9 @@ export function createWelcomeEmailDeliveryStore(supabase: SupabaseClient) {
         ["reserved"],
         {
           status: "submitting",
-          lease_expires_at: null,
+          lease_expires_at: new Date(
+            Date.now() + ATTEMPT_LEASE_MS,
+          ).toISOString(),
         },
       );
     },

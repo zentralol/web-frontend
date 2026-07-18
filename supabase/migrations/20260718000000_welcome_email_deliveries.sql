@@ -1,4 +1,4 @@
--- Persist welcome-email submission state so Clerk webhook retries stay idempotent.
+-- Persist welcome-email state so Clerk webhook retries stay coordinated and recoverable.
 
 create table if not exists public.welcome_email_deliveries (
     id              uuid primary key default gen_random_uuid(),
@@ -37,28 +37,39 @@ create table if not exists public.welcome_email_deliveries (
       check (
         (status = 'submitted' and submitted_at is not null)
         or (status <> 'submitted' and submitted_at is null)
-      ),
-    constraint welcome_email_deliveries_lease_check
-      check (
-        (status = 'reserved' and lease_expires_at is not null)
-        or (status <> 'reserved' and lease_expires_at is null)
       )
 );
 
+-- Rebuild the lease constraint so this migration also upgrades databases where
+-- the initial PR SQL was applied before submitting attempts became reclaimable.
+alter table public.welcome_email_deliveries
+  drop constraint if exists welcome_email_deliveries_lease_check;
+
+update public.welcome_email_deliveries
+set lease_expires_at = now() + interval '10 minutes'
+where status = 'submitting' and lease_expires_at is null;
+
+alter table public.welcome_email_deliveries
+  add constraint welcome_email_deliveries_lease_check
+  check (
+    (status in ('reserved', 'submitting') and lease_expires_at is not null)
+    or (status not in ('reserved', 'submitting') and lease_expires_at is null)
+  );
+
 comment on table public.welcome_email_deliveries is
-  'Service-only idempotency and submission audit state for Clerk welcome emails.';
+  'Service-only retry coordination and submission audit state for Clerk welcome emails.';
 
 comment on column public.welcome_email_deliveries.status is
-  'reserved before external I/O; submitting while the durable outcome needs reconciliation; submitted after acceptance; unknown when MXroute outcome is indeterminate.';
+  'reserved before external I/O; submitting while MXroute outcome is not durable; submitted after acceptance; unknown when MXroute outcome is indeterminate.';
 
 comment on column public.welcome_email_deliveries.reservation_token is
-  'Fencing token for one attempt; stale attempts cannot update a newer reservation.';
+  'Database fencing token for one attempt; MXroute does not consume this as an idempotency key.';
 
 comment on column public.welcome_email_deliveries.submitted_at is
   'Time MXroute accepted the request; this does not prove recipient delivery.';
 
 comment on column public.welcome_email_deliveries.lease_expires_at is
-  'Only pre-send reserved rows may be reclaimed after this time; submitting rows require reconciliation to avoid duplicate email.';
+  'Expired attempts may be reclaimed for at-least-once delivery; a provider-accepted request that crashes before finalization can be sent again.';
 
 create index if not exists idx_welcome_email_deliveries_unresolved
   on public.welcome_email_deliveries (status, lease_expires_at, updated_at)

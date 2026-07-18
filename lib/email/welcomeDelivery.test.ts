@@ -129,6 +129,7 @@ describe("createWelcomeEmailDeliveryStore", () => {
       data: {
         status: "submitted",
         attempt_count: 1,
+        reservation_token: "attempt-existing",
         lease_expires_at: null,
       },
       error: null,
@@ -148,7 +149,12 @@ describe("createWelcomeEmailDeliveryStore", () => {
       message: "unique violation",
     });
     const failedDelivery = new FakeTerminalQuery({
-      data: { status: "failed", attempt_count: 2, lease_expires_at: null },
+      data: {
+        status: "failed",
+        attempt_count: 2,
+        reservation_token: "attempt-failed",
+        lease_expires_at: null,
+      },
       error: null,
     });
     const successfulClaim = new FakeTerminalQuery({
@@ -188,7 +194,7 @@ describe("createWelcomeEmailDeliveryStore", () => {
     expect(successfulClaim.filters).toContainEqual(["status", "failed"]);
   });
 
-  it("does not acknowledge or reclaim an interrupted external submission", async () => {
+  it("keeps a live external submission indeterminate", async () => {
     const duplicateInsert = new FakeInsertQuery({
       code: "23505",
       message: "unique violation",
@@ -197,7 +203,8 @@ describe("createWelcomeEmailDeliveryStore", () => {
       data: {
         status: "submitting",
         attempt_count: 1,
-        lease_expires_at: null,
+        reservation_token: "attempt-live",
+        lease_expires_at: "2999-01-01T00:00:00.000Z",
       },
       error: null,
     });
@@ -210,13 +217,64 @@ describe("createWelcomeEmailDeliveryStore", () => {
     ).resolves.toEqual({ status: "indeterminate" });
   });
 
+  it("reclaims an external submission after its lease expires", async () => {
+    const duplicateInsert = new FakeInsertQuery({
+      code: "23505",
+      message: "unique violation",
+    });
+    const staleSubmission = new FakeTerminalQuery({
+      data: {
+        status: "submitting",
+        attempt_count: 1,
+        reservation_token: "attempt-stale",
+        lease_expires_at: "2000-01-01T00:00:00.000Z",
+      },
+      error: null,
+    });
+    const reclaimedSubmission = new FakeTerminalQuery({
+      data: { clerk_user_id: "user_123" },
+      error: null,
+    });
+    const store = createWelcomeEmailDeliveryStore(
+      createFakeClient(
+        duplicateInsert,
+        staleSubmission,
+        reclaimedSubmission,
+      ).client,
+    );
+
+    const reclaimed = await store.reserve("user_123", "kai@example.com");
+
+    expect(reclaimed).toEqual({
+      status: "acquired",
+      attemptToken: expect.any(String),
+    });
+    expect(reclaimedSubmission.filters).toContainEqual([
+      "reservation_token",
+      "attempt-stale",
+    ]);
+    expect(reclaimedSubmission.filters).toContainEqual([
+      "status",
+      "submitting",
+    ]);
+    expect(reclaimedSubmission.filters).toContainEqual([
+      "lease_expires_at",
+      expect.any(String),
+    ]);
+  });
+
   it("keeps retrying when a failed delivery was claimed concurrently", async () => {
     const duplicateInsert = new FakeInsertQuery({
       code: "23505",
       message: "unique violation",
     });
     const failedDelivery = new FakeTerminalQuery({
-      data: { status: "failed", attempt_count: 1, lease_expires_at: null },
+      data: {
+        status: "failed",
+        attempt_count: 1,
+        reservation_token: "attempt-failed",
+        lease_expires_at: null,
+      },
       error: null,
     });
     const lostClaim = new FakeTerminalQuery({ data: null, error: null });
@@ -238,6 +296,7 @@ describe("createWelcomeEmailDeliveryStore", () => {
       data: {
         status: "reserved",
         attempt_count: 1,
+        reservation_token: "attempt-live",
         lease_expires_at: "2999-01-01T00:00:00.000Z",
       },
       error: null,
@@ -258,6 +317,7 @@ describe("createWelcomeEmailDeliveryStore", () => {
       data: {
         status: "reserved",
         attempt_count: 1,
+        reservation_token: "attempt-stale",
         lease_expires_at: "2000-01-01T00:00:00.000Z",
       },
       error: null,
@@ -310,7 +370,7 @@ describe("createWelcomeEmailDeliveryStore", () => {
 
     expect(beginSubmission.updated).toEqual({
       status: "submitting",
-      lease_expires_at: null,
+      lease_expires_at: expect.any(String),
     });
     expect(beginSubmission.filters).toContainEqual([
       "reservation_token",

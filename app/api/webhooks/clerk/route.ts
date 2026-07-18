@@ -167,7 +167,7 @@ export async function handleClerkWebhook(
       return jsonResponse("submission_unknown");
     }
 
-    await markFailureSafely(
+    const failureRecorded = await markFailureSafely(
       store,
       event.data.id,
       attemptToken,
@@ -178,6 +178,10 @@ export async function handleClerkWebhook(
       clerkUserId: event.data.id,
       retryable: submissionError.retryable,
     });
+
+    if (!failureRecorded) {
+      return jsonResponse("submission_retry_state_pending", 503);
+    }
 
     return submissionError.retryable
       ? jsonResponse("submission_retryable", 503)
@@ -206,14 +210,16 @@ async function markFailureSafely(
   attemptToken: string,
   message: string,
   logger: ClerkWebhookDependencies["logger"],
-): Promise<void> {
+): Promise<boolean> {
   try {
     await store.markFailed(clerkUserId, attemptToken, message);
+    return true;
   } catch (error) {
     logger.error("welcome_email_failure_status_update_failed", {
       clerkUserId,
       error: error instanceof Error ? error.message : "unknown_error",
     });
+    return false;
   }
 }
 

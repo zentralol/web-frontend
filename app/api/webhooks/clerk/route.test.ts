@@ -267,6 +267,30 @@ describe("Clerk welcome email webhook", () => {
     );
   });
 
+  it("reports a retryable rejection whose failed state could not be recorded", async () => {
+    const harness = createHarness();
+    harness.submitEmail.mockRejectedValue(
+      new MxrouteSubmissionError("Rate limit exceeded", "rejected", true),
+    );
+    harness.store.markFailed.mockRejectedValue(
+      new Error("database unavailable"),
+    );
+
+    const response = await handleClerkWebhook(
+      new Request("https://zentra.example/api/webhooks/clerk"),
+      harness.dependencies,
+    );
+
+    expect(response.status).toBe(503);
+    await expect(responseBody(response)).resolves.toEqual({
+      status: "submission_retry_state_pending",
+    });
+    expect(harness.logger.error).toHaveBeenCalledWith(
+      "welcome_email_failure_status_update_failed",
+      expect.objectContaining({ clerkUserId: "user_123" }),
+    );
+  });
+
   it("records ambiguous failures without asking Clerk to resend", async () => {
     const harness = createHarness();
     harness.submitEmail.mockRejectedValue(
