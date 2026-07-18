@@ -43,4 +43,25 @@ describe("renderWelcomeEmail", () => {
 
     expect(email.html).toContain("Welcome, there.");
   });
+
+  it("uses the branded email-safe card layout", () => {
+    const email = renderWelcomeEmail({
+      firstName: "Kai",
+      onboardingUrl: "https://zentra.example/onboarding",
+    });
+
+    expect(email.html).toContain("background-color:#f1efe9");
+    expect(email.html).toContain("max-width:600px");
+    expect(email.html).toContain("background-color:#ffdca1");
+    expect(email.html).toContain("&#10003; ACCOUNT READY");
+    expect(email.html).toContain("Make Zentra yours");
+    expect(email.html).toContain("background-color:#0d0e0f");
+    expect(email.html).toContain("Set up your preferences");
+    expect(email.html).toContain('role="presentation" width="600"');
+    expect(email.html).toContain('bgcolor="#ffdca1"');
+    expect(email.html).toContain(
+      'href="https://zentra.example/onboarding"',
+    );
+    expect(email.html).toContain("mso-hide:all");
+  });
 });
