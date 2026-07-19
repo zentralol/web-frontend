@@ -12,7 +12,6 @@
 - [🧰 Tech Stack](#-tech-stack)
 - [✨ Features](#-features)
 - [🧭 App Routes](#-app-routes)
-- [🔌 API Routes](#-api-routes)
 - [🔗 External Integrations](#-external-integrations)
 - [📁 Project Structure](#-project-structure)
 - [🚀 Getting Started](#-getting-started)
@@ -142,19 +141,6 @@ Crowd prediction coverage in the UI is Manhattan-focused; out-of-coverage respon
 | `/settings` | Signed in + onboarded | Places, feedback, preferences |
 
 Navbar tabs: Map, Routes, Assistant, Activity, Settings.
-
----
-
-## 🔌 API Routes
-
-Next.js BFF routes in this app (not the Express backend):
-
-| Method & path | Purpose |
-|---------------|---------|
-| `GET /api/attractions` | Attractions from Supabase; attaches crowd from `attraction_predictions` when available |
-| `GET /api/map/heatmap` | H3 heatmap points from `heatmap_predictions` (`targetTime` naive ISO `YYYY-MM-DDTHH:mm:ss`) |
-| `POST /api/routes/compute` | Walk / transit / bicycle via Google Routes (`origin` / `destination` with lat, lng, label) |
-| `POST /api/webhooks/clerk` | Clerk webhook; welcome email on `user.created` |
 
 ---
 

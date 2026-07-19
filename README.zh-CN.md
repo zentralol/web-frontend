@@ -12,7 +12,6 @@
 - [🧰 技术栈](#-技术栈)
 - [✨ 功能](#-功能)
 - [🧭 应用路由](#-应用路由)
-- [🔌 API 路由](#-api-路由)
 - [🔗 外部集成](#-外部集成)
 - [📁 项目结构](#-项目结构)
 - [🚀 快速开始](#-快速开始)
@@ -142,19 +141,6 @@
 | `/settings` | 已登录 + 已引导 | 地点、反馈、偏好 |
 
 导航标签：Map、Routes、Assistant、Activity、Settings。
-
----
-
-## 🔌 API 路由
-
-本应用内的 Next.js BFF（不是 Express 后端）：
-
-| 方法与路径 | 用途 |
-|------------|------|
-| `GET /api/attractions` | 从 Supabase 读取景点；可用时附加 `attraction_predictions` 人群数据 |
-| `GET /api/map/heatmap` | 从 `heatmap_predictions` 返回 H3 热力点（`targetTime` 为 naive ISO `YYYY-MM-DDTHH:mm:ss`） |
-| `POST /api/routes/compute` | 经 Google Routes 计算步行 / 公交 / 骑行（`origin` / `destination` 含 lat、lng、label） |
-| `POST /api/webhooks/clerk` | Clerk webhook；`user.created` 时发送欢迎邮件 |
 
 ---
 
