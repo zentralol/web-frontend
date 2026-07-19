@@ -1,37 +1,151 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# 🚀 Zentra Web Frontend
 
-## Getting Started
+**English** | [简体中文](./README.zh-CN.md)
 
-First, run the development server:
+**Zentra Web Frontend** is a Next.js app for personalized travel planning. Set your preferences, explore crowd-aware maps, build routes, and chat with an AI assistant that plans trips around your pace, interests, accessibility needs, and crowd tolerance.
+
+---
+
+## 📋 Table of Contents
+- [✨ Features](#-features)
+- [🚀 Getting Started](#-getting-started)
+  - [🔧 Installation](#-installation)
+  - [⚙️ Configuration](#️-configuration)
+- [💻 Usage](#-usage)
+- [🧬 Testing](#-testing)
+- [🤝 Contributing](#-contributing)
+- [📝 License](#-license)
+- [📧 Contact](#-contact)
+
+---
+
+## ✨ Features
+- **Clerk auth**: Sign-in, sign-up, and onboarding for travel preferences.
+- **Crowd-aware map**: Live heatmap and location detail on `/map` via Google Maps and backend predictions.
+- **AI trip assistant**: Streaming chat on `/assistant` through the backend gateway (`/api/v1/chat/stream`).
+- **Routes, activity, favorites, and settings**: Plan itineraries, review activity, save places, and manage account preferences.
+
+---
+
+## 🚀 Getting Started
+
+### 🔧 Installation
+To get started with **Zentra Web Frontend**, follow these steps:
+
+1. Clone the repository:
+   ```bash
+   git clone git@github.com:zentralol/web-frontend.git
+   ```
+
+2. Navigate to the project directory:
+   ```bash
+   cd web-frontend
+   ```
+
+3. Install the dependencies:
+   ```bash
+   pnpm install
+   ```
+
+### ⚙️ Configuration
+Copy `.env.example` to `.env` in the project root and fill in the values:
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+cp .env.example .env
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Key environment variables:
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+| Variable | Purpose |
+|----------|---------|
+| `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY` / `CLERK_SECRET_KEY` | Clerk authentication |
+| `NEXT_PUBLIC_CLERK_SIGN_IN_URL` / `NEXT_PUBLIC_CLERK_SIGN_UP_URL` | Auth route paths (defaults: `/sign-in`, `/sign-up`) |
+| `NEXT_PUBLIC_SUPABASE_URL` / `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Supabase client access |
+| `SUPABASE_SERVICE_ROLE_KEY` | Server-side Supabase access |
+| `CLERK_WEBHOOK_SIGNING_SECRET` | Clerk `user.created` webhook verification |
+| `MXROUTE_SERVER` / `MXROUTE_USERNAME` / `MXROUTE_PASSWORD` / `MXROUTE_FROM` | Welcome email via MXroute SMTP |
+| `NEXT_PUBLIC_GOOGLE_MAPS_API_KEY` | Google Maps (enable Routes API + Places API New) |
+| `NEXT_PUBLIC_GOOGLE_MAPS_MAP_ID` | Optional Cloud Map ID for Advanced Markers |
+| `NEXT_PUBLIC_BACKEND_API_BASE_URL` | Backend origin (requests use `/api/v1`; default `http://localhost:3000`) |
+| `NEXT_PUBLIC_IOS_APP_URL` / `NEXT_PUBLIC_ANDROID_APP_URL` | Smart app banner store links |
+| `DEEPSEEK_MODEL` | Display/metadata model label for new conversations |
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+Do not commit real secrets. Keep `.env` local.
 
-## Learn More
+For map and assistant features, run the Zentra backend locally (or point `NEXT_PUBLIC_BACKEND_API_BASE_URL` at a reachable API). Chat streams through `/api/v1/chat/stream` using the caller's Clerk token.
 
-To learn more about Next.js, take a look at the following resources:
+---
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+## 💻 Usage
+Here’s how to use **Zentra Web Frontend**:
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+1. Start the development server:
+   ```bash
+   pnpm dev
+   ```
 
-## Deploy on Vercel
+2. Open [http://localhost:3000](http://localhost:3000) in your browser.
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+3. For a production-like local run:
+   ```bash
+   pnpm build
+   pnpm start
+   ```
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
-# web-frontend
+Useful routes once signed in: `/` (home), `/map`, `/assistant`, `/routes`, `/activity`, `/settings`.
+
+---
+
+## 🧬 Testing
+Tests use Vitest. Run them with:
+
+```bash
+pnpm test
+```
+
+Watch mode and coverage:
+
+```bash
+pnpm test:watch
+pnpm test:coverage
+```
+
+---
+
+## 🤝 Contributing
+We welcome contributions! If you'd like to contribute, please follow these steps:
+
+1. Fork the repository.
+
+2. Create a new branch:
+   ```bash
+   git checkout -b feature/your-feature-name
+   ```
+
+3. Commit your changes:
+   ```bash
+   git commit -m "Add your awesome feature"
+   ```
+
+4. Push to the branch:
+   ```bash
+   git push origin feature/your-feature-name
+   ```
+
+5. Open a pull request against `zentralol/web-frontend`.
+
+---
+
+## 📝 License
+This project is **private**. All rights reserved.
+
+---
+
+## 📧 Contact
+Questions or feedback:
+
+- **GitHub Issues**: [Open an Issue](https://github.com/zentralol/web-frontend/issues)
+
+---
+
+Made with ❤️ by the Zentra team. Happy coding!
