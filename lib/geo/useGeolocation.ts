@@ -60,5 +60,7 @@ export function useGeolocation(): { coords: Coords | null } {
     };
   }, [isDemo]);
 
-  return { coords: isDemo ? { ...DEMO_USER_COORDS } : liveCoords };
+  // Return the module constant as-is so demo coords keep a stable identity
+  // across renders (callers often put coords in effect deps).
+  return { coords: isDemo ? DEMO_USER_COORDS : liveCoords };
 }

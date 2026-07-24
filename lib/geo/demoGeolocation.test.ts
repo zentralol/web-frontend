@@ -16,24 +16,27 @@ describe("requestCurrentPosition demo mode", () => {
     const getCurrentPosition = vi.fn();
     vi.stubGlobal("navigator", { geolocation: { getCurrentPosition } });
 
-    await expect(requestCurrentPosition()).resolves.toEqual({
-      ...DEMO_USER_COORDS,
-    });
+    await expect(requestCurrentPosition()).resolves.toBe(DEMO_USER_COORDS);
     expect(getCurrentPosition).not.toHaveBeenCalled();
   });
 });
 
 describe("useGeolocation demo mode", () => {
-  it("returns DEMO_USER_COORDS without calling navigator.geolocation", async () => {
+  it("returns a stable DEMO_USER_COORDS reference without calling navigator", async () => {
     document.cookie = `${DEMO_MODE_COOKIE}=1; path=/`;
     const getCurrentPosition = vi.fn();
     vi.stubGlobal("navigator", { geolocation: { getCurrentPosition } });
 
-    const { result } = renderHook(() => useGeolocation());
+    const { result, rerender } = renderHook(() => useGeolocation());
 
     await waitFor(() => {
-      expect(result.current.coords).toEqual({ ...DEMO_USER_COORDS });
+      expect(result.current.coords).toBe(DEMO_USER_COORDS);
     });
+
+    const first = result.current.coords;
+    rerender();
+    expect(result.current.coords).toBe(first);
+    expect(result.current.coords).toBe(DEMO_USER_COORDS);
     expect(getCurrentPosition).not.toHaveBeenCalled();
   });
 });

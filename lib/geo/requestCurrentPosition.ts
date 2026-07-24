@@ -17,7 +17,7 @@ const GEOLOCATION_OPTIONS: PositionOptions = {
  */
 export function requestCurrentPosition(): Promise<Coords> {
   if (getDemoModeClient()) {
-    return Promise.resolve({ ...DEMO_USER_COORDS });
+    return Promise.resolve(DEMO_USER_COORDS);
   }
 
   return new Promise((resolve, reject) => {
