@@ -167,7 +167,11 @@ describe("createDemoChatSseStream", () => {
     "streams parseable frames for preset: %s",
     async (question) => {
       const text = await readAll(
-        createDemoChatSseStream({ message: question, chunkDelayMs: 0 }),
+        createDemoChatSseStream({
+          message: question,
+          startDelayMs: 0,
+          chunkDelayMs: 0,
+        }),
       );
       const { events, rest } = parseZentraSse(text);
       expect(rest).toBe("");
@@ -183,6 +187,7 @@ describe("createDemoChatSseStream", () => {
     const text = await readAll(
       createDemoChatSseStream({
         message: "Tell me something random",
+        startDelayMs: 0,
         chunkDelayMs: 0,
       }),
     );

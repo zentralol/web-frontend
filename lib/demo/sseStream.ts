@@ -16,6 +16,8 @@ function chunkText(text: string, size = 24): string[] {
 export type CreateDemoChatStreamOptions = {
   message: string;
   conversationId?: string;
+  /** Delay before the first SSE frame in ms. Use 0 in tests. */
+  startDelayMs?: number;
   /** Delay between SSE frames in ms. Use 0 in tests. */
   chunkDelayMs?: number;
 };
@@ -28,6 +30,7 @@ export function createDemoChatSseStream(
   options: CreateDemoChatStreamOptions,
 ): ReadableStream<Uint8Array> {
   const { message, conversationId = "demo-conversation-0001" } = options;
+  const startDelayMs = options.startDelayMs ?? 2000;
   const chunkDelayMs = options.chunkDelayMs ?? 18;
   const script = getDemoAssistantScript(message);
   const encoder = new TextEncoder();
@@ -56,6 +59,10 @@ export function createDemoChatSseStream(
 
   return new ReadableStream<Uint8Array>({
     async start(controller) {
+      if (startDelayMs > 0) {
+        await new Promise((resolve) => setTimeout(resolve, startDelayMs));
+      }
+
       for (const frame of frames) {
         controller.enqueue(encoder.encode(frame));
         if (chunkDelayMs > 0) {
