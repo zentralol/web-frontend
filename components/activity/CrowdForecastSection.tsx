@@ -15,6 +15,8 @@ interface CrowdForecastSectionProps {
   result: CrowdForecastResult;
   isLocating: boolean;
   locationError: string | null;
+  /** Overrides the default “Your location · next Nh” subtitle. */
+  locationLabel?: string;
   onUseLocation: () => void;
 }
 
@@ -23,6 +25,7 @@ export function CrowdForecastSection({
   result,
   isLocating,
   locationError,
+  locationLabel,
   onUseLocation,
 }: CrowdForecastSectionProps) {
   const [selectedIndex, setSelectedIndex] = useState(0);
@@ -38,7 +41,7 @@ export function CrowdForecastSection({
           <h2
             className={`${spaceGrotesk.className} mt-2 text-lg font-light text-white`}
           >
-            Your location · next {FORECAST_HOURS}h
+            {locationLabel ?? `Your location · next ${FORECAST_HOURS}h`}
           </h2>
         </div>
         {result.current && state === "ready" && (

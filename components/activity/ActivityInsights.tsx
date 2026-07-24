@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState, useSyncExternalStore } from "react";
 import type { Attraction } from "@/lib/attractions/types";
 import type { AttractionPredictionRow } from "@/lib/attractions/types";
 import { useAuthenticatedBackendFetch } from "@/lib/backend/useAuthenticatedBackendFetch";
@@ -12,6 +12,12 @@ import {
   rankTopLandmarksFromPredictions,
   type LandmarksSortOrder,
 } from "@/lib/activity/fetchTopLandmarksFromPredictions";
+import {
+  DEMO_USER_LOCATION_LABEL,
+  getDemoModeClient,
+  getDemoModeServerSnapshot,
+  subscribeDemoMode,
+} from "@/lib/demo/mode";
 import { useGeolocation, type Coords } from "@/lib/geo/useGeolocation";
 import { requestCurrentPosition } from "@/lib/geo/requestCurrentPosition";
 import { CrowdForecastSection } from "./CrowdForecastSection";
@@ -26,6 +32,11 @@ type ForecastState = "idle" | "loading" | "ready" | "error";
 
 export function ActivityInsights({ attractions, predictions }: ActivityInsightsProps) {
   const backendFetch = useAuthenticatedBackendFetch();
+  const isDemo = useSyncExternalStore(
+    subscribeDemoMode,
+    getDemoModeClient,
+    getDemoModeServerSnapshot,
+  );
   const { coords: passiveCoords } = useGeolocation();
 
   const [manualCoords, setManualCoords] = useState<Coords | null>(null);
@@ -99,6 +110,9 @@ export function ActivityInsights({ attractions, predictions }: ActivityInsightsP
           result={forecastResult}
           isLocating={isLocating}
           locationError={locationError}
+          locationLabel={
+            isDemo ? `Demo location · ${DEMO_USER_LOCATION_LABEL}` : undefined
+          }
           onUseLocation={() => {
             void handleUseLocation();
           }}

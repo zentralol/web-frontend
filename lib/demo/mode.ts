@@ -5,6 +5,10 @@ export const DEMO_MODE_CHANGE_EVENT = "zentra-demo-mode-change";
 /** Fixed demo conversation id so assistant routes work without Supabase. */
 export const DEMO_CONVERSATION_ID = "demo-conversation-0001";
 
+/** Fixed Manhattan coords used instead of browser geolocation in demo mode. */
+export const DEMO_USER_COORDS = { lat: 40.7308, lng: -73.9973 } as const;
+export const DEMO_USER_LOCATION_LABEL = "Washington Square Park";
+
 export function isDemoModeFromCookie(
   cookieHeader: string | null | undefined,
 ): boolean {
