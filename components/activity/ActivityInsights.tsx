@@ -81,11 +81,17 @@ export function ActivityInsights({ attractions, predictions }: ActivityInsightsP
       return;
     }
 
+    const requestLat = lat;
+    const requestLng = lng;
     let cancelled = false;
 
     async function loadForecast() {
       setForecastState("loading");
-      const result = await fetchCrowdForecast(lat, lng, backendFetchRef.current);
+      const result = await fetchCrowdForecast(
+        requestLat,
+        requestLng,
+        backendFetchRef.current,
+      );
       if (cancelled) return;
 
       setForecastResult(result);
