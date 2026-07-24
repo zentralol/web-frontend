@@ -1,45 +1,86 @@
-import type { HeatmapPoint } from "@/lib/map/fetchHeatmap";
+import { rowsToHeatmapPoints } from "@/lib/map/heatmapMappers";
+import type { HeatmapPredictionRow } from "@/lib/map/heatmapTypes";
+import { parseNaiveIsoMs } from "@/lib/map/heatmapTargetTimeResolve";
+import { formatInNewYork } from "@/lib/time/manhattanTime";
+import snapshot from "./heatmap.json";
 
-const CELLS: Array<{
-  h3Cell: string;
+const ONE_HOUR_MS = 60 * 60 * 1000;
+const MAX_HOURS_AHEAD = 8;
+
+type HeatmapSlotRow = {
+  h3_cell: string;
   lat: number;
-  lng: number;
-  score: number;
-  level: string;
-}> = [
-  { h3Cell: "892a1008803ffff", lat: 40.758, lng: -73.9855, score: 0.82, level: "very_busy" },
-  { h3Cell: "892a1008807ffff", lat: 40.7527, lng: -73.9772, score: 0.71, level: "busy" },
-  { h3Cell: "892a100d2c3ffff", lat: 40.7484, lng: -73.9857, score: 0.68, level: "busy" },
-  { h3Cell: "892a100d6d3ffff", lat: 40.7308, lng: -73.9973, score: 0.44, level: "moderate" },
-  { h3Cell: "892a100d2c7ffff", lat: 40.7411, lng: -74.0048, score: 0.55, level: "moderate" },
-  { h3Cell: "892a1072c27ffff", lat: 40.7829, lng: -73.9654, score: 0.61, level: "busy" },
-  { h3Cell: "892a1072c23ffff", lat: 40.7794, lng: -73.9632, score: 0.48, level: "moderate" },
-  { h3Cell: "892a100d657ffff", lat: 40.7265, lng: -74.002, score: 0.36, level: "quiet" },
-  { h3Cell: "892a100d64bffff", lat: 40.7359, lng: -74.0027, score: 0.33, level: "quiet" },
-  { h3Cell: "892a1072893ffff", lat: 40.7614, lng: -73.9776, score: 0.77, level: "busy" },
-  { h3Cell: "892a1008c17ffff", lat: 40.7061, lng: -73.9969, score: 0.64, level: "busy" },
-  { h3Cell: "892a1072cdbffff", lat: 40.7813, lng: -73.974, score: 0.42, level: "moderate" },
-];
+  lon: number;
+  period: string | null;
+  crowd_score: number;
+  crowd_level: string;
+  pedestrians_pred: number | null;
+  crowd_category: string | null;
+  source: string;
+};
 
-export function buildDemoHeatmapPoints(targetTime: string): HeatmapPoint[] {
-  return CELLS.map((cell) => ({
-    h3Cell: cell.h3Cell,
-    coordinates: { lat: cell.lat, lng: cell.lng },
-    period: "hour",
-    queryTimestamp: targetTime,
-    crowdScore: cell.score,
-    crowdLevel: cell.level,
-    pedestriansPredicted: Math.round(cell.score * 400),
-    crowdCategory: cell.level,
+type HeatmapSlot = {
+  hoursAhead: number;
+  sourceTargetTime: string;
+  rows: HeatmapSlotRow[];
+};
+
+const slots = (snapshot as { slots: HeatmapSlot[] }).slots;
+
+function clampHoursAhead(value: number): number {
+  if (!Number.isFinite(value)) {
+    return 0;
+  }
+  return Math.min(MAX_HOURS_AHEAD, Math.max(0, Math.round(value)));
+}
+
+/** Map a UI-requested Manhattan wall-clock time onto fixture slot 0..8. */
+export function resolveDemoHeatmapHoursAhead(
+  requestedTargetTime: string,
+  now: Date = new Date(),
+): number {
+  const nowNy = formatInNewYork(now);
+  const hoursAhead =
+    (parseNaiveIsoMs(requestedTargetTime) - parseNaiveIsoMs(nowNy)) /
+    ONE_HOUR_MS;
+  return clampHoursAhead(hoursAhead);
+}
+
+function rowsForHoursAhead(
+  hoursAhead: number,
+  requestedTargetTime: string,
+): HeatmapPredictionRow[] {
+  const slot = slots.find((entry) => entry.hoursAhead === hoursAhead);
+  if (!slot) {
+    return [];
+  }
+
+  return slot.rows.map((row) => ({
+    h3_cell: row.h3_cell,
+    lat: row.lat,
+    lon: row.lon,
+    period: row.period,
+    target_time: requestedTargetTime,
+    crowd_score: row.crowd_score,
+    crowd_level: row.crowd_level,
+    pedestrians_pred: row.pedestrians_pred,
+    crowd_category: row.crowd_category,
     source: "demo",
   }));
 }
 
-export function demoHeatmapResponse(targetTime: string) {
+export function demoHeatmapResponse(
+  targetTime: string,
+  now: Date = new Date(),
+) {
+  const hoursAhead = resolveDemoHeatmapHoursAhead(targetTime, now);
+  const rows = rowsForHoursAhead(hoursAhead, targetTime);
+
   return {
     targetTime,
     resolvedTargetTime: targetTime,
     source: "demo",
-    points: buildDemoHeatmapPoints(targetTime),
+    hoursAhead,
+    points: rowsToHeatmapPoints(rows),
   };
 }

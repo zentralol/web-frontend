@@ -6,7 +6,12 @@ import {
 import { routeDemoBackendRequest } from "./backendRouter";
 import { createDemoChatSseStream } from "./sseStream";
 import { DEMO_SUGGESTED_QUESTIONS } from "./fixtures/assistant";
+import {
+  demoHeatmapResponse,
+  resolveDemoHeatmapHoursAhead,
+} from "./fixtures/heatmap";
 import { parseZentraSse } from "@/lib/assistant/agentStreamAdapter";
+import { formatInNewYork } from "@/lib/time/manhattanTime";
 
 describe("isDemoModeFromCookie", () => {
   it("detects the demo cookie among others", () => {
@@ -19,6 +24,52 @@ describe("isDemoModeFromCookie", () => {
     expect(isDemoModeFromCookie("session=abc")).toBe(false);
     expect(isDemoModeFromCookie(`${DEMO_MODE_COOKIE}=0`)).toBe(false);
     expect(isDemoModeFromCookie(null)).toBe(false);
+  });
+});
+
+describe("demoHeatmapResponse", () => {
+  const fixedNow = new Date("2026-07-24T16:00:00.000Z");
+
+  function targetHoursAhead(hours: number): string {
+    return formatInNewYork(
+      new Date(fixedNow.getTime() + hours * 60 * 60 * 1000),
+    );
+  }
+
+  it("returns a full grid for the now slot", () => {
+    const payload = demoHeatmapResponse(targetHoursAhead(0), fixedNow);
+    expect(payload.source).toBe("demo");
+    expect(payload.hoursAhead).toBe(0);
+    expect(payload.points.length).toBeGreaterThan(400);
+    expect(payload.points[0]).toMatchObject({
+      h3Cell: expect.any(String),
+      crowdScore: expect.any(Number),
+    });
+  });
+
+  it("maps future options onto different hoursAhead slots", () => {
+    expect(resolveDemoHeatmapHoursAhead(targetHoursAhead(0), fixedNow)).toBe(0);
+    expect(resolveDemoHeatmapHoursAhead(targetHoursAhead(3), fixedNow)).toBe(3);
+
+    const nowPoints = demoHeatmapResponse(targetHoursAhead(0), fixedNow).points;
+    const laterPoints = demoHeatmapResponse(
+      targetHoursAhead(3),
+      fixedNow,
+    ).points;
+    expect(nowPoints.length).toBeGreaterThan(400);
+    expect(laterPoints.length).toBeGreaterThan(400);
+
+    const nowTop = nowPoints[0]?.h3Cell;
+    const laterTop = laterPoints[0]?.h3Cell;
+    const nowScoreSum = nowPoints.reduce(
+      (sum, point) => sum + point.crowdScore,
+      0,
+    );
+    const laterScoreSum = laterPoints.reduce(
+      (sum, point) => sum + point.crowdScore,
+      0,
+    );
+    expect(nowTop !== laterTop || nowScoreSum !== laterScoreSum).toBe(true);
   });
 });
 
