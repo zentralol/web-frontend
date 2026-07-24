@@ -9,6 +9,7 @@ import {
 } from "./queries";
 import type { UserPreferences } from "./types";
 import { parsePreferenceFormValues } from "./validation";
+import { isDemoMode } from "@/lib/demo/mode";
 
 async function requireUserId() {
   const { userId } = await auth();
@@ -48,6 +49,11 @@ export async function updatePreferencesAction(
 ): Promise<UserPreferences> {
   const userId = await requireUserId();
   const values = parsePreferenceFormValues(input, { requireInterests: true });
+
+  if (await isDemoMode()) {
+    return { ...values, onboardingCompleted: true };
+  }
+
   const supabase = await createServerSupabaseClient();
   const existing = await getOnboardingPreferences(supabase, userId);
 

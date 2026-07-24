@@ -4,6 +4,8 @@ import type {
   ParsedSaveItinerary,
 } from "./validation";
 import type { SavedItinerary, SavedItineraryRow } from "./types";
+import { DEMO_ITINERARIES } from "@/lib/demo/fixtures/activity";
+import { isDemoMode } from "@/lib/demo/mode";
 
 const TABLE = "saved_itineraries";
 
@@ -11,6 +13,10 @@ export async function listSavedItineraries(
   supabase: SupabaseClient,
   userId: string,
 ): Promise<SavedItinerary[]> {
+  if (await isDemoMode()) {
+    return DEMO_ITINERARIES;
+  }
+
   const { data, error } = await supabase
     .from(TABLE)
     .select("*")
@@ -30,6 +36,20 @@ export async function createSavedItinerary(
   userId: string,
   payload: ParsedSaveItinerary & { title: string },
 ): Promise<SavedItinerary> {
+  if (await isDemoMode()) {
+    return {
+      id: `demo-itinerary-${Date.now()}`,
+      title: payload.title,
+      source: payload.source,
+      items: payload.items,
+      description: payload.description ?? null,
+      note: null,
+      targetTime: payload.targetTime ?? null,
+      conversationId: payload.conversationId,
+      createdAt: new Date().toISOString(),
+    };
+  }
+
   const { data, error } = await supabase
     .from(TABLE)
     .insert({
@@ -56,6 +76,10 @@ export async function softDeleteSavedItinerary(
   userId: string,
   itineraryId: string,
 ): Promise<void> {
+  if (await isDemoMode()) {
+    return;
+  }
+
   await assertOwnedItinerary(supabase, userId, itineraryId);
 
   const { error } = await supabase
@@ -75,6 +99,10 @@ export async function updateSavedItineraryNote(
   itineraryId: string,
   note: string,
 ): Promise<void> {
+  if (await isDemoMode()) {
+    return;
+  }
+
   await assertOwnedItinerary(supabase, userId, itineraryId);
 
   const { error } = await supabase
@@ -94,6 +122,10 @@ export async function updateSavedItineraryTitle(
   itineraryId: string,
   title: string,
 ): Promise<void> {
+  if (await isDemoMode()) {
+    return;
+  }
+
   await assertOwnedItinerary(supabase, userId, itineraryId);
 
   const { error } = await supabase
@@ -136,6 +168,10 @@ export async function updateSavedItineraryTargetTime(
   itineraryId: string,
   targetTime: string | null,
 ): Promise<void> {
+  if (await isDemoMode()) {
+    return;
+  }
+
   await assertOwnedItinerary(supabase, userId, itineraryId);
 
   const { error } = await supabase

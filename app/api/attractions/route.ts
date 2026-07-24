@@ -3,11 +3,19 @@ import {
   listAttractions,
   listRecentAttractionPredictions,
 } from "@/lib/attractions/queries";
+import {
+  demoAttractionsJsonResponse,
+} from "@/lib/demo/handlers";
+import { isDemoModeFromCookie } from "@/lib/demo/mode";
 import { logger } from "@/lib/logger";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 import { NextResponse } from "next/server";
 
-export async function GET() {
+export async function GET(request: Request) {
+  if (isDemoModeFromCookie(request.headers.get("cookie"))) {
+    return demoAttractionsJsonResponse();
+  }
+
   try {
     const supabase = await createServerSupabaseClient();
 

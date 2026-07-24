@@ -3,6 +3,8 @@ import type {
   ComputeRoutesResponse,
   RouteLocation,
 } from "@/lib/routes/types";
+import { demoRoutesJsonResponse } from "@/lib/demo/handlers";
+import { isDemoModeFromCookie } from "@/lib/demo/mode";
 import { NextResponse } from "next/server";
 
 function isValidLocation(value: unknown): value is RouteLocation {
@@ -26,15 +28,6 @@ function locationsAreSame(a: RouteLocation, b: RouteLocation): boolean {
 }
 
 export async function POST(request: Request) {
-  const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY;
-
-  if (!apiKey) {
-    return NextResponse.json(
-      { error: "Missing NEXT_PUBLIC_GOOGLE_MAPS_API_KEY" },
-      { status: 500 },
-    );
-  }
-
   let body: { origin?: unknown; destination?: unknown };
 
   try {
@@ -56,6 +49,19 @@ export async function POST(request: Request) {
     return NextResponse.json(
       { error: "Origin and destination must differ" },
       { status: 400 },
+    );
+  }
+
+  if (isDemoModeFromCookie(request.headers.get("cookie"))) {
+    return demoRoutesJsonResponse();
+  }
+
+  const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY;
+
+  if (!apiKey) {
+    return NextResponse.json(
+      { error: "Missing NEXT_PUBLIC_GOOGLE_MAPS_API_KEY" },
+      { status: 500 },
     );
   }
 

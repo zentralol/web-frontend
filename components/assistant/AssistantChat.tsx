@@ -24,6 +24,7 @@ import {
   isConversationEmpty,
 } from "@/lib/assistant/conversationState";
 import { titleFromUserMessage } from "@/lib/assistant/titleUtils";
+import { DEMO_SUGGESTED_QUESTIONS } from "@/lib/demo/fixtures/assistant";
 
 const WELCOME_MESSAGE: UIMessage = {
   id: WELCOME_MESSAGE_ID,
@@ -36,12 +37,7 @@ const WELCOME_MESSAGE: UIMessage = {
   ],
 };
 
-const SUGGESTED_QUESTIONS = [
-  "Plan a relaxed day in Greenwich Village",
-  "Where in Manhattan can I avoid crowds tonight?",
-  "Budget-friendly lunch spots near Central Park",
-  "Accessible museums on the Upper West Side",
-] as const;
+const SUGGESTED_QUESTIONS = DEMO_SUGGESTED_QUESTIONS;
 
 type AssistantChatProps = {
   conversationId: string;
