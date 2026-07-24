@@ -1,6 +1,12 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import {
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  useSyncExternalStore,
+} from "react";
 import { useChat } from "@ai-sdk/react";
 import { AlertCircle, Bot, Send, User } from "lucide-react";
 import { type UIMessage } from "ai";
@@ -24,7 +30,17 @@ import {
   isConversationEmpty,
 } from "@/lib/assistant/conversationState";
 import { titleFromUserMessage } from "@/lib/assistant/titleUtils";
+import {
+  getDemoMessages,
+  isDemoConversationId,
+  saveDemoMessages,
+} from "@/lib/demo/conversationStore";
 import { DEMO_SUGGESTED_QUESTIONS } from "@/lib/demo/fixtures/assistant";
+import {
+  getDemoModeClient,
+  getDemoModeServerSnapshot,
+  subscribeDemoMode,
+} from "@/lib/demo/mode";
 
 const WELCOME_MESSAGE: UIMessage = {
   id: WELCOME_MESSAGE_ID,
@@ -121,6 +137,13 @@ export function AssistantChat({
 }: AssistantChatProps) {
   const [inputValue, setInputValue] = useState("");
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const isDemo = useSyncExternalStore(
+    subscribeDemoMode,
+    getDemoModeClient,
+    getDemoModeServerSnapshot,
+  );
+  // Demo messages live in localStorage; hold persist until client hydrate.
+  const [demoReady, setDemoReady] = useState(false);
 
   const backendFetch = useAuthenticatedBackendFetch();
   const transport = useMemo(
@@ -137,7 +160,7 @@ export function AssistantChat({
 
   const previousStatusRef = useRef<string | null>(null);
 
-  const { messages, sendMessage, status, error } = useChat({
+  const { messages, sendMessage, setMessages, status, error } = useChat({
     id: conversationId,
     transport,
     messages: seedMessages,
@@ -165,6 +188,33 @@ export function AssistantChat({
   );
   const needsThinkingPlaceholder =
     showThinking && status === "submitted" && activeAssistantMessageId === null;
+
+  useEffect(() => {
+    if (!isDemo || !isDemoConversationId(conversationId)) {
+      setDemoReady(true);
+      return;
+    }
+
+    const stored = getDemoMessages(conversationId);
+    if (stored.length > 0) {
+      setMessages(stored);
+    }
+    setDemoReady(true);
+  }, [isDemo, conversationId, setMessages]);
+
+  useEffect(() => {
+    if (
+      !demoReady ||
+      !isDemo ||
+      !isDemoConversationId(conversationId) ||
+      status === "streaming" ||
+      status === "submitted"
+    ) {
+      return;
+    }
+
+    saveDemoMessages(conversationId, messages);
+  }, [demoReady, isDemo, conversationId, messages, status]);
 
   useEffect(() => {
     const previousStatus = previousStatusRef.current;

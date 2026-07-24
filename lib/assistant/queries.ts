@@ -10,7 +10,8 @@ import {
   DEMO_CONVERSATION_SUMMARY,
   demoConversationRow,
 } from "@/lib/demo/fixtures/activity";
-import { DEMO_CONVERSATION_ID, isDemoMode } from "@/lib/demo/mode";
+import { isDemoConversationId } from "@/lib/demo/conversationStore";
+import { isDemoMode } from "@/lib/demo/mode";
 
 const DEFAULT_MODEL = process.env.DEEPSEEK_MODEL ?? "deepseek-v4-flash";
 
@@ -42,10 +43,14 @@ export async function getConversation(
   conversationId: string,
 ): Promise<ConversationRow | null> {
   if (await isDemoMode()) {
-    if (conversationId !== DEMO_CONVERSATION_ID) {
+    // Client-created demo ids are demo-conversation-<uuid>; accept any of them.
+    if (!isDemoConversationId(conversationId)) {
       return null;
     }
-    return demoConversationRow(userId);
+    return {
+      ...demoConversationRow(userId),
+      id: conversationId,
+    };
   }
 
   const { data, error } = await supabase
@@ -69,7 +74,11 @@ export async function createConversation(
   model: string = DEFAULT_MODEL,
 ): Promise<ConversationRow> {
   if (await isDemoMode()) {
-    return demoConversationRow(userId);
+    // Placeholder only — AssistantShell creates real demo ids in localStorage.
+    return {
+      ...demoConversationRow(userId),
+      id: `demo-conversation-${crypto.randomUUID()}`,
+    };
   }
 
   const { data, error } = await supabase
