@@ -43,6 +43,18 @@ import {
 } from "@/lib/demo/mode";
 import { spaceGrotesk } from "@/app/ui/fonts";
 
+function subscribeAlways() {
+  return () => {};
+}
+
+function getClientHydrated() {
+  return true;
+}
+
+function getServerHydrated() {
+  return false;
+}
+
 type AssistantShellProps = {
   initialConversations: ConversationSummary[];
   children: ReactNode;
@@ -137,21 +149,39 @@ export function AssistantShell({
     visiblePendingConversationId,
   });
 
-  useEffect(() => {
+  const hydrated = useSyncExternalStore(
+    subscribeAlways,
+    getClientHydrated,
+    getServerHydrated,
+  );
+  const [demoSynced, setDemoSynced] = useState(false);
+
+  // Bootstrap demo conversations from localStorage during render (not in an
+  // effect) so we stay compatible with react-hooks/set-state-in-effect.
+  if (isDemo && hydrated && !demoSynced) {
+    setDemoSynced(true);
+    setConversations(ensureDemoConversations());
+  }
+  if ((!isDemo || !hydrated) && demoSynced) {
+    setDemoSynced(false);
     if (!isDemo) {
+      setConversations(initialConversations);
+    }
+  }
+
+  useEffect(() => {
+    if (!isDemo || !hydrated || !activeConversationId) {
       return;
     }
 
-    const list = ensureDemoConversations();
-    setConversations(list);
-
+    const list = listDemoConversations();
     if (
-      activeConversationId &&
+      list.length > 0 &&
       !list.some((item) => item.id === activeConversationId)
     ) {
       router.replace(`/assistant/${list[0].id}`);
     }
-  }, [isDemo, activeConversationId, router]);
+  }, [isDemo, hydrated, activeConversationId, router]);
 
   const requestSidebarRefresh = useCallback(() => {
     refreshCleanupRef.current?.();

@@ -30,6 +30,7 @@ import {
   isConversationEmpty,
 } from "@/lib/assistant/conversationState";
 import { titleFromUserMessage } from "@/lib/assistant/titleUtils";
+import { AssistantChatSkeleton } from "@/components/assistant/AssistantChatSkeleton";
 import {
   getDemoMessages,
   isDemoConversationId,
@@ -41,6 +42,18 @@ import {
   getDemoModeServerSnapshot,
   subscribeDemoMode,
 } from "@/lib/demo/mode";
+
+function subscribeAlways() {
+  return () => {};
+}
+
+function getClientHydrated() {
+  return true;
+}
+
+function getServerHydrated() {
+  return false;
+}
 
 const WELCOME_MESSAGE: UIMessage = {
   id: WELCOME_MESSAGE_ID,
@@ -135,15 +148,39 @@ export function AssistantChat({
   conversationId,
   initialMessages,
 }: AssistantChatProps) {
-  const [inputValue, setInputValue] = useState("");
-  const messagesEndRef = useRef<HTMLDivElement>(null);
   const isDemo = useSyncExternalStore(
     subscribeDemoMode,
     getDemoModeClient,
     getDemoModeServerSnapshot,
   );
-  // Demo messages live in localStorage; hold persist until client hydrate.
-  const [demoReady, setDemoReady] = useState(false);
+  const hydrated = useSyncExternalStore(
+    subscribeAlways,
+    getClientHydrated,
+    getServerHydrated,
+  );
+
+  // Wait for client hydration so localStorage seed is available before useChat
+  // mounts — avoids setState-in-effect when restoring demo messages.
+  if (isDemo && !hydrated) {
+    return <AssistantChatSkeleton />;
+  }
+
+  return (
+    <AssistantChatSession
+      conversationId={conversationId}
+      initialMessages={initialMessages}
+      isDemo={isDemo}
+    />
+  );
+}
+
+function AssistantChatSession({
+  conversationId,
+  initialMessages,
+  isDemo,
+}: AssistantChatProps & { isDemo: boolean }) {
+  const [inputValue, setInputValue] = useState("");
+  const messagesEndRef = useRef<HTMLDivElement>(null);
 
   const backendFetch = useAuthenticatedBackendFetch();
   const transport = useMemo(
@@ -152,15 +189,22 @@ export function AssistantChat({
   );
   const { coords } = useGeolocation();
 
-  const seedMessages =
-    initialMessages.length > 0 ? initialMessages : [WELCOME_MESSAGE];
+  const seedMessages = useMemo(() => {
+    if (isDemo && isDemoConversationId(conversationId)) {
+      const stored = getDemoMessages(conversationId);
+      if (stored.length > 0) {
+        return stored;
+      }
+    }
+    return initialMessages.length > 0 ? initialMessages : [WELCOME_MESSAGE];
+  }, [isDemo, conversationId, initialMessages]);
 
   const { setActiveConversationEmpty, requestSidebarRefresh, setOptimisticTitle } =
     useConversationEmptiness();
 
   const previousStatusRef = useRef<string | null>(null);
 
-  const { messages, sendMessage, setMessages, status, error } = useChat({
+  const { messages, sendMessage, status, error } = useChat({
     id: conversationId,
     transport,
     messages: seedMessages,
@@ -190,21 +234,7 @@ export function AssistantChat({
     showThinking && status === "submitted" && activeAssistantMessageId === null;
 
   useEffect(() => {
-    if (!isDemo || !isDemoConversationId(conversationId)) {
-      setDemoReady(true);
-      return;
-    }
-
-    const stored = getDemoMessages(conversationId);
-    if (stored.length > 0) {
-      setMessages(stored);
-    }
-    setDemoReady(true);
-  }, [isDemo, conversationId, setMessages]);
-
-  useEffect(() => {
     if (
-      !demoReady ||
       !isDemo ||
       !isDemoConversationId(conversationId) ||
       status === "streaming" ||
@@ -214,7 +244,7 @@ export function AssistantChat({
     }
 
     saveDemoMessages(conversationId, messages);
-  }, [demoReady, isDemo, conversationId, messages, status]);
+  }, [isDemo, conversationId, messages, status]);
 
   useEffect(() => {
     const previousStatus = previousStatusRef.current;
