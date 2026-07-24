@@ -1,23 +1,42 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useSyncExternalStore } from "react";
 import { useRouter } from "next/navigation";
-import { getDemoModeClient, setDemoModeClient } from "./mode";
+import {
+  getDemoModeClient,
+  getDemoModeServerSnapshot,
+  setDemoModeClient,
+  subscribeDemoMode,
+} from "./mode";
+
+function subscribeHydrated() {
+  return () => {};
+}
+
+function getHydratedClientSnapshot() {
+  return true;
+}
+
+function getHydratedServerSnapshot() {
+  return false;
+}
 
 export function useDemoMode() {
   const router = useRouter();
-  const [enabled, setEnabled] = useState(false);
-  const [hydrated, setHydrated] = useState(false);
-
-  useEffect(() => {
-    setEnabled(getDemoModeClient());
-    setHydrated(true);
-  }, []);
+  const enabled = useSyncExternalStore(
+    subscribeDemoMode,
+    getDemoModeClient,
+    getDemoModeServerSnapshot,
+  );
+  const hydrated = useSyncExternalStore(
+    subscribeHydrated,
+    getHydratedClientSnapshot,
+    getHydratedServerSnapshot,
+  );
 
   const setDemoMode = useCallback(
     (next: boolean) => {
       setDemoModeClient(next);
-      setEnabled(next);
       router.refresh();
     },
     [router],

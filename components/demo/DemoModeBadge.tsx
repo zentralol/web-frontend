@@ -1,26 +1,19 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useSyncExternalStore } from "react";
 import {
-  DEMO_MODE_CHANGE_EVENT,
   getDemoModeClient,
+  getDemoModeServerSnapshot,
+  subscribeDemoMode,
 } from "@/lib/demo/mode";
 import { spaceGrotesk } from "@/app/ui/fonts";
 
 export function DemoModeBadge() {
-  const [enabled, setEnabled] = useState(false);
-
-  useEffect(() => {
-    setEnabled(getDemoModeClient());
-
-    const sync = () => setEnabled(getDemoModeClient());
-    window.addEventListener("focus", sync);
-    window.addEventListener(DEMO_MODE_CHANGE_EVENT, sync);
-    return () => {
-      window.removeEventListener("focus", sync);
-      window.removeEventListener(DEMO_MODE_CHANGE_EVENT, sync);
-    };
-  }, []);
+  const enabled = useSyncExternalStore(
+    subscribeDemoMode,
+    getDemoModeClient,
+    getDemoModeServerSnapshot,
+  );
 
   if (!enabled) {
     return null;

@@ -30,6 +30,26 @@ export function getDemoModeClient(): boolean {
   return isDemoModeFromCookie(document.cookie);
 }
 
+/** SSR / first-paint snapshot — always off to avoid hydration mismatch. */
+export function getDemoModeServerSnapshot(): boolean {
+  return false;
+}
+
+/** Subscribe to demo-mode cookie changes for useSyncExternalStore. */
+export function subscribeDemoMode(onStoreChange: () => void): () => void {
+  if (typeof window === "undefined") {
+    return () => {};
+  }
+
+  const sync = () => onStoreChange();
+  window.addEventListener("focus", sync);
+  window.addEventListener(DEMO_MODE_CHANGE_EVENT, sync);
+  return () => {
+    window.removeEventListener("focus", sync);
+    window.removeEventListener(DEMO_MODE_CHANGE_EVENT, sync);
+  };
+}
+
 /** Browser-only write of the demo cookie (1 year when on). */
 export function setDemoModeClient(enabled: boolean): void {
   if (typeof document === "undefined") {
