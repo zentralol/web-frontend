@@ -165,6 +165,8 @@ describe("toForecastTimeLabel", () => {
     expect(toForecastTimeLabel("2026-07-10T16:30:00")).toBe("4:30 PM");
   });
 
+  // Digits-only labeling helper: when given a Z string it still reads HH:mm
+  // from the digits. mapForecastItems instead converts real UTC Z → NY first.
   test("reads the digits of a Z-suffixed timestamp as Manhattan wall time", () => {
     expect(toForecastTimeLabel("2026-07-10T16:30:00.000Z")).toBe("4:30 PM");
   });

@@ -4,7 +4,6 @@ import { useState } from "react";
 import { Loader2, Navigation, TrendingUp } from "lucide-react";
 import { spaceGrotesk } from "@/app/ui/fonts";
 import type { CrowdForecastResult } from "@/lib/activity/fetchCrowdForecast";
-import { FORECAST_HOURS } from "@/lib/activity/fetchCrowdForecast";
 import { formatBusynessLevel } from "@/lib/activity/busynessDisplay";
 import { ForecastTimeline } from "@/components/shared/ForecastTimeline";
 
@@ -15,7 +14,7 @@ interface CrowdForecastSectionProps {
   result: CrowdForecastResult;
   isLocating: boolean;
   locationError: string | null;
-  /** Overrides the default “Your location · next Nh” subtitle. */
+  /** Overrides the default “Your location” subtitle (e.g. demo location). */
   locationLabel?: string;
   onUseLocation: () => void;
 }
@@ -41,7 +40,7 @@ export function CrowdForecastSection({
           <h2
             className={`${spaceGrotesk.className} mt-2 text-lg font-light text-white`}
           >
-            {locationLabel ?? `Your location · next ${FORECAST_HOURS}h`}
+            {locationLabel ?? "Your location"}
           </h2>
         </div>
         {result.current && state === "ready" && (
@@ -59,7 +58,7 @@ export function CrowdForecastSection({
         <div className="mt-6 rounded-xl border border-dashed border-white/15 bg-white/[0.02] px-5 py-8 text-center">
           <Navigation className="mx-auto h-5 w-5 text-accent/70" aria-hidden />
           <p className="mt-3 text-sm text-white/55">
-            Enable location to see an 8-hour crowd forecast for where you are.
+            Enable location to see a crowd forecast for where you are.
           </p>
           <button
             type="button"
