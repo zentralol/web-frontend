@@ -25,11 +25,11 @@ function addHoursNaive(iso: string, hours: number): string {
 }
 
 function scoreForHour(hour: number): { score: number; level: string } {
-  if (hour >= 11 && hour <= 14) return { score: 0.78, level: "busy" };
-  if (hour >= 17 && hour <= 20) return { score: 0.85, level: "very_busy" };
-  if (hour >= 7 && hour <= 9) return { score: 0.55, level: "moderate" };
-  if (hour >= 22 || hour <= 5) return { score: 0.22, level: "very_quiet" };
-  return { score: 0.4, level: "quiet" };
+  if (hour >= 11 && hour <= 14) return { score: 78, level: "busy" };
+  if (hour >= 17 && hour <= 20) return { score: 85, level: "very_busy" };
+  if (hour >= 7 && hour <= 9) return { score: 55, level: "moderate" };
+  if (hour >= 22 || hour <= 5) return { score: 22, level: "very_quiet" };
+  return { score: 40, level: "quiet" };
 }
 
 export function demoCurrentPredictionResponse(targetTime?: string) {

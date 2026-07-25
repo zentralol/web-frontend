@@ -82,7 +82,7 @@ describe("routeDemoBackendRequest", () => {
         body: JSON.stringify({
           lat: 40.75,
           lng: -73.99,
-          targetTime: "2026-07-24T15:00:00",
+          targetTime: "2026-07-24T12:00:00",
         }),
       },
     );
@@ -90,7 +90,7 @@ describe("routeDemoBackendRequest", () => {
     expect(response).not.toBeNull();
     const payload = await response!.json();
     expect(payload.success).toBe(true);
-    expect(payload.data.prediction.busynessScore).toBeTypeOf("number");
+    expect(payload.data.prediction.busynessScore).toBe(78);
   });
 
   it("returns forecast fixtures from query params", async () => {
@@ -101,6 +101,10 @@ describe("routeDemoBackendRequest", () => {
     expect(response).not.toBeNull();
     const payload = await response!.json();
     expect(payload.data.forecast).toHaveLength(6);
+    for (const point of payload.data.forecast) {
+      expect(point.busynessScore).toBeGreaterThanOrEqual(1);
+      expect(point.busynessScore).toBeLessThanOrEqual(100);
+    }
   });
 
   it("returns quieter-area recommendations", async () => {
