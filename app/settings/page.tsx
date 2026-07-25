@@ -6,6 +6,7 @@ import { createServerSupabaseClient } from "@/lib/supabase/server";
 import { spaceGrotesk } from "@/app/ui/fonts";
 import { SavedPlacesSection } from "@/components/settings/SavedPlacesSection";
 import { FeedbackSection } from "@/components/settings/FeedbackSection";
+import { DemoModeSection } from "@/components/settings/DemoModeSection";
 import { listFavoritePlaces } from "@/lib/favorites/queries";
 
 export default async function SettingsPage() {
@@ -42,6 +43,7 @@ export default async function SettingsPage() {
         </p>
       </div>
       <div className="space-y-12">
+        <DemoModeSection />
         <SavedPlacesSection initialPlaces={favoritePlaces} />
         <FeedbackSection />
         <section

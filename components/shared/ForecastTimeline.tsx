@@ -4,7 +4,6 @@ import { useState } from "react";
 import type { ForecastPoint } from "@/lib/map/fetchPredictions";
 import {
   busynessLevelBadgeClass,
-  busynessScoreBarClass,
   formatBusynessLevel,
 } from "@/lib/activity/busynessDisplay";
 
@@ -93,9 +92,7 @@ export function ForecastTimeline({
                   className={`w-full rounded-t-sm transition-all duration-300 ${barClassName} ${
                     isSelected
                       ? "bg-accent/80"
-                      : `${busynessScoreBarClass(point.score)} ${
-                          interactive ? "hover:bg-accent/50" : ""
-                        }`
+                      : `bg-accent/45 ${interactive ? "hover:bg-accent/60" : ""}`
                   }`}
                 />
               </div>

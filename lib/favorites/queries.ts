@@ -5,6 +5,8 @@ import type {
   FavoritePlaceRow,
   ParsedFavoritePlaceInput,
 } from "./types";
+import { DEMO_FAVORITES } from "@/lib/demo/fixtures/activity";
+import { isDemoMode } from "@/lib/demo/mode";
 
 const TABLE = "favorite_places";
 
@@ -12,6 +14,10 @@ export async function listFavoritePlaces(
   supabase: SupabaseClient,
   userId: string,
 ): Promise<FavoritePlace[]> {
+  if (await isDemoMode()) {
+    return DEMO_FAVORITES;
+  }
+
   const { data, error } = await supabase
     .from(TABLE)
     .select("*")
@@ -29,6 +35,10 @@ export async function listFavoritePlaceKeys(
   supabase: SupabaseClient,
   userId: string,
 ): Promise<string[]> {
+  if (await isDemoMode()) {
+    return DEMO_FAVORITES.map((place) => place.placeKey);
+  }
+
   const { data, error } = await supabase
     .from(TABLE)
     .select("place_key")
@@ -48,6 +58,23 @@ export async function upsertFavoritePlace(
   userId: string,
   place: ParsedFavoritePlaceInput,
 ): Promise<FavoritePlace> {
+  if (await isDemoMode()) {
+    return {
+      id: `demo-fav-${place.placeKey}`,
+      placeKey: place.placeKey,
+      source: place.source,
+      sourcePlaceId: place.sourcePlaceId,
+      name: place.name,
+      address: place.address ?? null,
+      lat: place.lat,
+      lng: place.lng,
+      category: place.category ?? null,
+      neighborhood: place.neighborhood ?? null,
+      note: null,
+      createdAt: new Date().toISOString(),
+    };
+  }
+
   const { data, error } = await supabase
     .from(TABLE)
     .upsert(
@@ -80,6 +107,10 @@ export async function deleteFavoritePlace(
   userId: string,
   placeKey: string,
 ): Promise<void> {
+  if (await isDemoMode()) {
+    return;
+  }
+
   const { error } = await supabase
     .from(TABLE)
     .delete()
@@ -97,6 +128,10 @@ export async function updateFavoritePlaceNote(
   placeKey: string,
   note: string,
 ): Promise<void> {
+  if (await isDemoMode()) {
+    return;
+  }
+
   const { error } = await supabase
     .from(TABLE)
     .update({ note: note.length > 0 ? note : null })

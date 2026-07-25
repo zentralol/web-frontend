@@ -1,6 +1,13 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  useSyncExternalStore,
+} from "react";
 import type { Attraction } from "@/lib/attractions/types";
 import type { AttractionPredictionRow } from "@/lib/attractions/types";
 import { useAuthenticatedBackendFetch } from "@/lib/backend/useAuthenticatedBackendFetch";
@@ -12,6 +19,12 @@ import {
   rankTopLandmarksFromPredictions,
   type LandmarksSortOrder,
 } from "@/lib/activity/fetchTopLandmarksFromPredictions";
+import {
+  DEMO_USER_LOCATION_LABEL,
+  getDemoModeClient,
+  getDemoModeServerSnapshot,
+  subscribeDemoMode,
+} from "@/lib/demo/mode";
 import { useGeolocation, type Coords } from "@/lib/geo/useGeolocation";
 import { requestCurrentPosition } from "@/lib/geo/requestCurrentPosition";
 import { CrowdForecastSection } from "./CrowdForecastSection";
@@ -26,6 +39,17 @@ type ForecastState = "idle" | "loading" | "ready" | "error";
 
 export function ActivityInsights({ attractions, predictions }: ActivityInsightsProps) {
   const backendFetch = useAuthenticatedBackendFetch();
+  const backendFetchRef = useRef(backendFetch);
+
+  useEffect(() => {
+    backendFetchRef.current = backendFetch;
+  }, [backendFetch]);
+
+  const isDemo = useSyncExternalStore(
+    subscribeDemoMode,
+    getDemoModeClient,
+    getDemoModeServerSnapshot,
+  );
   const { coords: passiveCoords } = useGeolocation();
 
   const [manualCoords, setManualCoords] = useState<Coords | null>(null);
@@ -33,6 +57,8 @@ export function ActivityInsights({ attractions, predictions }: ActivityInsightsP
   const [locationError, setLocationError] = useState<string | null>(null);
 
   const userCoords = manualCoords ?? passiveCoords;
+  const lat = userCoords?.lat;
+  const lng = userCoords?.lng;
 
   const [sortOrder, setSortOrder] = useState<LandmarksSortOrder>("busiest_first");
 
@@ -51,16 +77,21 @@ export function ActivityInsights({ attractions, predictions }: ActivityInsightsP
   });
 
   useEffect(() => {
-    if (!userCoords) {
+    if (lat == null || lng == null) {
       return;
     }
 
-    const { lat, lng } = userCoords;
+    const requestLat = lat;
+    const requestLng = lng;
     let cancelled = false;
 
     async function loadForecast() {
       setForecastState("loading");
-      const result = await fetchCrowdForecast(lat, lng, backendFetch);
+      const result = await fetchCrowdForecast(
+        requestLat,
+        requestLng,
+        backendFetchRef.current,
+      );
       if (cancelled) return;
 
       setForecastResult(result);
@@ -74,7 +105,7 @@ export function ActivityInsights({ attractions, predictions }: ActivityInsightsP
     return () => {
       cancelled = true;
     };
-  }, [userCoords, backendFetch]);
+  }, [lat, lng]);
 
   const handleUseLocation = useCallback(async () => {
     setIsLocating(true);
@@ -99,6 +130,9 @@ export function ActivityInsights({ attractions, predictions }: ActivityInsightsP
           result={forecastResult}
           isLocating={isLocating}
           locationError={locationError}
+          locationLabel={
+            isDemo ? `Demo location · ${DEMO_USER_LOCATION_LABEL}` : undefined
+          }
           onUseLocation={() => {
             void handleUseLocation();
           }}

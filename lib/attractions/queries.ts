@@ -5,6 +5,11 @@ import type {
   AttractionPredictionRow,
   AttractionRow,
 } from "./types";
+import {
+  DEMO_ATTRACTION_PREDICTIONS,
+  DEMO_ATTRACTIONS,
+} from "@/lib/demo/fixtures/attractions";
+import { isDemoMode } from "@/lib/demo/mode";
 
 // The prediction job writes one row per attraction per hour; a two-hour
 // window always covers the newest row while keeping the result set small.
@@ -13,6 +18,10 @@ const PREDICTION_WINDOW_MS = 2 * 60 * 60 * 1000;
 export async function listAttractions(
   supabase: SupabaseClient,
 ): Promise<Attraction[]> {
+  if (await isDemoMode()) {
+    return DEMO_ATTRACTIONS;
+  }
+
   const { data, error } = await supabase
     .from("attractions")
     .select("id, Name, Category, Neighborhood, Description, lat, lon")
@@ -32,6 +41,10 @@ export async function listAttractions(
 export async function listRecentAttractionPredictions(
   supabase: SupabaseClient,
 ): Promise<AttractionPredictionRow[]> {
+  if (await isDemoMode()) {
+    return DEMO_ATTRACTION_PREDICTIONS;
+  }
+
   const windowStart = new Date(Date.now() - PREDICTION_WINDOW_MS).toISOString();
 
   const { data, error } = await supabase

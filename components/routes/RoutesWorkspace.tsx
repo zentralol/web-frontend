@@ -7,6 +7,7 @@ import RouteActionBar from "@/components/routes/RouteActionBar";
 import RouteMap from "@/components/routes/RouteMap";
 import RouteSidebar from "@/components/routes/RouteSidebar";
 import { requestCurrentPosition } from "@/lib/geo/requestCurrentPosition";
+import { getDemoModeClient } from "@/lib/demo/mode";
 import { fetchRouteOptions } from "@/lib/routes/fetchRouteOptions";
 import {
   DEFAULT_DESTINATION,
@@ -54,8 +55,9 @@ export default function RoutesWorkspace() {
 
   // When arriving via a "take me there" link, best-effort set the origin to the
   // user's current location (async, so it never blocks or fails the page).
+  // Demo mode keeps the High Line → WSP defaults instead.
   useEffect(() => {
-    if (!prefilledDestination) return;
+    if (!prefilledDestination || getDemoModeClient()) return;
     let cancelled = false;
     requestCurrentPosition()
       .then((coords) => {
@@ -112,6 +114,14 @@ export default function RoutesWorkspace() {
 
   const handlePlanRoute = useCallback(() => {
     if (loading) return;
+
+    if (getDemoModeClient()) {
+      setOrigin(DEFAULT_ORIGIN);
+      setDestination(DEFAULT_DESTINATION);
+      void loadRoutes(DEFAULT_ORIGIN, DEFAULT_DESTINATION);
+      return;
+    }
+
     void loadRoutes(origin, destination);
   }, [loadRoutes, loading, origin, destination]);
 

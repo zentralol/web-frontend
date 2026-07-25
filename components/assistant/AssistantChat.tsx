@@ -1,6 +1,12 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import {
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  useSyncExternalStore,
+} from "react";
 import { useChat } from "@ai-sdk/react";
 import { AlertCircle, Bot, Send, User } from "lucide-react";
 import { type UIMessage } from "ai";
@@ -24,6 +30,30 @@ import {
   isConversationEmpty,
 } from "@/lib/assistant/conversationState";
 import { titleFromUserMessage } from "@/lib/assistant/titleUtils";
+import { AssistantChatSkeleton } from "@/components/assistant/AssistantChatSkeleton";
+import {
+  getDemoMessages,
+  isDemoConversationId,
+  saveDemoMessages,
+} from "@/lib/demo/conversationStore";
+import { DEMO_SUGGESTED_QUESTIONS } from "@/lib/demo/fixtures/assistant";
+import {
+  getDemoModeClient,
+  getDemoModeServerSnapshot,
+  subscribeDemoMode,
+} from "@/lib/demo/mode";
+
+function subscribeAlways() {
+  return () => {};
+}
+
+function getClientHydrated() {
+  return true;
+}
+
+function getServerHydrated() {
+  return false;
+}
 
 const WELCOME_MESSAGE: UIMessage = {
   id: WELCOME_MESSAGE_ID,
@@ -36,12 +66,7 @@ const WELCOME_MESSAGE: UIMessage = {
   ],
 };
 
-const SUGGESTED_QUESTIONS = [
-  "Plan a relaxed day in Greenwich Village",
-  "Where in Manhattan can I avoid crowds tonight?",
-  "Budget-friendly lunch spots near Central Park",
-  "Accessible museums on the Upper West Side",
-] as const;
+const SUGGESTED_QUESTIONS = DEMO_SUGGESTED_QUESTIONS;
 
 type AssistantChatProps = {
   conversationId: string;
@@ -123,6 +148,37 @@ export function AssistantChat({
   conversationId,
   initialMessages,
 }: AssistantChatProps) {
+  const isDemo = useSyncExternalStore(
+    subscribeDemoMode,
+    getDemoModeClient,
+    getDemoModeServerSnapshot,
+  );
+  const hydrated = useSyncExternalStore(
+    subscribeAlways,
+    getClientHydrated,
+    getServerHydrated,
+  );
+
+  // Wait for client hydration so localStorage seed is available before useChat
+  // mounts — avoids setState-in-effect when restoring demo messages.
+  if (isDemo && !hydrated) {
+    return <AssistantChatSkeleton />;
+  }
+
+  return (
+    <AssistantChatSession
+      conversationId={conversationId}
+      initialMessages={initialMessages}
+      isDemo={isDemo}
+    />
+  );
+}
+
+function AssistantChatSession({
+  conversationId,
+  initialMessages,
+  isDemo,
+}: AssistantChatProps & { isDemo: boolean }) {
   const [inputValue, setInputValue] = useState("");
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
@@ -133,8 +189,15 @@ export function AssistantChat({
   );
   const { coords } = useGeolocation();
 
-  const seedMessages =
-    initialMessages.length > 0 ? initialMessages : [WELCOME_MESSAGE];
+  const seedMessages = useMemo(() => {
+    if (isDemo && isDemoConversationId(conversationId)) {
+      const stored = getDemoMessages(conversationId);
+      if (stored.length > 0) {
+        return stored;
+      }
+    }
+    return initialMessages.length > 0 ? initialMessages : [WELCOME_MESSAGE];
+  }, [isDemo, conversationId, initialMessages]);
 
   const { setActiveConversationEmpty, requestSidebarRefresh, setOptimisticTitle } =
     useConversationEmptiness();
@@ -169,6 +232,19 @@ export function AssistantChat({
   );
   const needsThinkingPlaceholder =
     showThinking && status === "submitted" && activeAssistantMessageId === null;
+
+  useEffect(() => {
+    if (
+      !isDemo ||
+      !isDemoConversationId(conversationId) ||
+      status === "streaming" ||
+      status === "submitted"
+    ) {
+      return;
+    }
+
+    saveDemoMessages(conversationId, messages);
+  }, [isDemo, conversationId, messages, status]);
 
   useEffect(() => {
     const previousStatus = previousStatusRef.current;

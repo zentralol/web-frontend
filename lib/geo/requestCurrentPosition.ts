@@ -1,3 +1,5 @@
+import { DEMO_USER_COORDS, getDemoModeClient } from "@/lib/demo/mode";
+
 export type Coords = { lat: number; lng: number };
 
 const GEOLOCATION_OPTIONS: PositionOptions = {
@@ -10,8 +12,14 @@ const GEOLOCATION_OPTIONS: PositionOptions = {
  * One-shot, promise-based device location for on-demand "use my current
  * location" actions. Rejects when geolocation is unsupported or the user denies
  * / the request errors, so callers can surface a message.
+ *
+ * In demo mode, returns fixed Manhattan coords without calling the browser API.
  */
 export function requestCurrentPosition(): Promise<Coords> {
+  if (getDemoModeClient()) {
+    return Promise.resolve(DEMO_USER_COORDS);
+  }
+
   return new Promise((resolve, reject) => {
     if (typeof navigator === "undefined" || !navigator.geolocation) {
       reject(new Error("Location is not available in this browser."));

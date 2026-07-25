@@ -6,6 +6,12 @@ import type {
   ConversationSummary,
   MessageRow,
 } from "./types";
+import {
+  DEMO_CONVERSATION_SUMMARY,
+  demoConversationRow,
+} from "@/lib/demo/fixtures/activity";
+import { isDemoConversationId } from "@/lib/demo/conversationStore";
+import { isDemoMode } from "@/lib/demo/mode";
 
 const DEFAULT_MODEL = process.env.DEEPSEEK_MODEL ?? "deepseek-v4-flash";
 
@@ -13,6 +19,10 @@ export async function listConversations(
   supabase: SupabaseClient,
   userId: string,
 ): Promise<ConversationSummary[]> {
+  if (await isDemoMode()) {
+    return [DEMO_CONVERSATION_SUMMARY];
+  }
+
   const { data, error } = await supabase
     .from("conversations")
     .select("*")
@@ -32,6 +42,17 @@ export async function getConversation(
   userId: string,
   conversationId: string,
 ): Promise<ConversationRow | null> {
+  if (await isDemoMode()) {
+    // Client-created demo ids are demo-conversation-<uuid>; accept any of them.
+    if (!isDemoConversationId(conversationId)) {
+      return null;
+    }
+    return {
+      ...demoConversationRow(userId),
+      id: conversationId,
+    };
+  }
+
   const { data, error } = await supabase
     .from("conversations")
     .select("*")
@@ -52,6 +73,14 @@ export async function createConversation(
   userId: string,
   model: string = DEFAULT_MODEL,
 ): Promise<ConversationRow> {
+  if (await isDemoMode()) {
+    // Placeholder only — AssistantShell creates real demo ids in localStorage.
+    return {
+      ...demoConversationRow(userId),
+      id: `demo-conversation-${crypto.randomUUID()}`,
+    };
+  }
+
   const { data, error } = await supabase
     .from("conversations")
     .insert({
@@ -72,6 +101,10 @@ export async function getMessages(
   supabase: SupabaseClient,
   conversationId: string,
 ): Promise<UIMessage[]> {
+  if (await isDemoMode()) {
+    return [];
+  }
+
   const { data, error } = await supabase
     .from("messages")
     .select("*")
@@ -91,6 +124,10 @@ export async function softDeleteConversation(
   userId: string,
   conversationId: string,
 ): Promise<void> {
+  if (await isDemoMode()) {
+    return;
+  }
+
   const conversation = await getConversation(supabase, userId, conversationId);
 
   if (!conversation) {

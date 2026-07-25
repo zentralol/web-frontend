@@ -1,0 +1,55 @@
+{
+  "origin": {
+    "lat": 40.748,
+    "lng": -74.0048,
+    "label": "The High Line, 10th Ave (mock data)"
+  },
+  "destination": {
+    "lat": 40.7308,
+    "lng": -73.9973,
+    "label": "Washington Square Park (mock data)"
+  },
+  "fetchedAt": "2026-07-24T14:59:26.398Z",
+  "routes": [
+    {
+      "id": "walk",
+      "name": "Walk",
+      "description": "1.6 mi · 36 min\nLow sidewalk density along the route. (mock data)",
+      "durationMinutes": 36,
+      "tags": [
+        "ZEN PATH (mock data)",
+        "LOW DENSITY (mock data)"
+      ],
+      "encodedPolyline": "iruwFv`ubMl@gBCERk@@?dB{FrBkGRs@@@vEaO^VBAfBfAAFVN@EbBjAABTLd@\\XJ^TADXP?E~AdAABRLBEd@Zd@HXRGPRNDI|AfACHTN@E~@n@\\ZVN?CdBhAAB~@l@`@FNJZZAFZR?CtA|@Ti@AAjAo@RIAAlBaAtAs@?BVM?ArAs@?BTK?ChB{@b@SCCvAs@?DRK?EhB}@@FNK?EhBaA?F|Aw@ZI?BVCAQh@ObBfAn@\\Ts@B@fCsGRLp@K@MDCFu@FSP_@`@e@Rg@R}@h@b@H[NUVIP?",
+      "efficiency": "Moderate (mock data)",
+      "noiseLevel": "24dB Avg (mock data)",
+      "cost": "Free (mock data)"
+    },
+    {
+      "id": "transit",
+      "name": "Transit",
+      "description": "1.8 mi · 21 min\nExpect moderate platform density at transfer stations. (mock data)",
+      "durationMinutes": 21,
+      "tags": [
+        "BUSY STATION (mock data)"
+      ],
+      "encodedPolyline": "iruwFv`ubMl@gBCERk@@?dB{FrBkGRs@@@nEoNCAoAyBvd@nZv@Vl@Dn@Cl@Q`\\iPx@Oh@?h@Fh@T|E`DGRkDyA@@FSTs@B@fCsGRLp@K@MDCFu@FSP_@`@e@Rg@R}@h@b@H[NUVIP?",
+      "efficiency": "High (mock data)",
+      "noiseLevel": "38dB Avg (mock data)",
+      "cost": "$2.90 (mock data)"
+    },
+    {
+      "id": "bicycle",
+      "name": "Bicycle",
+      "description": "1.7 mi · 13 min\nDocks likely available at both ends. (mock data)",
+      "durationMinutes": 13,
+      "tags": [
+        "FASTEST (mock data)"
+      ],
+      "encodedPolyline": "yquwFbaubMv@_ClBsG|BaHxGlEpBvArLtH~CdBf@X`BVbAR~Q`Bx@FVEbAgAd@OfNmCfAYlKeFqBeIzAuAR_@v@wBjFaN[WCSO]GEHk@E[MYQK",
+      "efficiency": "High (mock data)",
+      "noiseLevel": "18dB Avg (mock data)",
+      "cost": "$4.50 (mock data)"
+    }
+  ]
+}

@@ -1,6 +1,12 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useSyncExternalStore } from "react";
+import {
+  DEMO_USER_COORDS,
+  getDemoModeClient,
+  getDemoModeServerSnapshot,
+  subscribeDemoMode,
+} from "@/lib/demo/mode";
 
 export type Coords = { lat: number; lng: number };
 
@@ -14,11 +20,22 @@ const GEOLOCATION_OPTIONS: PositionOptions = {
  * Requests the device location once on mount. Degrades quietly: if the browser
  * has no geolocation, or the user denies or the request errors, `coords` stays
  * null and callers simply proceed without a location.
+ *
+ * In demo mode, returns fixed Manhattan coords without calling the browser API.
  */
 export function useGeolocation(): { coords: Coords | null } {
-  const [coords, setCoords] = useState<Coords | null>(null);
+  const isDemo = useSyncExternalStore(
+    subscribeDemoMode,
+    getDemoModeClient,
+    getDemoModeServerSnapshot,
+  );
+  const [liveCoords, setLiveCoords] = useState<Coords | null>(null);
 
   useEffect(() => {
+    if (isDemo) {
+      return;
+    }
+
     if (typeof navigator === "undefined" || !navigator.geolocation) {
       return;
     }
@@ -27,7 +44,7 @@ export function useGeolocation(): { coords: Coords | null } {
     navigator.geolocation.getCurrentPosition(
       (position) => {
         if (cancelled) return;
-        setCoords({
+        setLiveCoords({
           lat: position.coords.latitude,
           lng: position.coords.longitude,
         });
@@ -41,7 +58,9 @@ export function useGeolocation(): { coords: Coords | null } {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [isDemo]);
 
-  return { coords };
+  // Return the module constant as-is so demo coords keep a stable identity
+  // across renders (callers often put coords in effect deps).
+  return { coords: isDemo ? DEMO_USER_COORDS : liveCoords };
 }

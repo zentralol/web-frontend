@@ -2,19 +2,6 @@ export function formatBusynessLevel(level: string): string {
   return level.replaceAll("_", " ");
 }
 
-export function busynessScoreBarClass(score: number): string {
-  if (score >= 80) {
-    return "bg-red-400/80";
-  }
-  if (score >= 60) {
-    return "bg-white/25";
-  }
-  if (score >= 40) {
-    return "bg-accent/60";
-  }
-  return "bg-white/10";
-}
-
 export function busynessLevelBadgeClass(level: string): string {
   switch (level) {
     case "very_busy":

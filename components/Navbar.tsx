@@ -23,6 +23,7 @@ import {
   UserButton,
 } from "@clerk/nextjs";
 import { spaceGrotesk } from "@/app/ui/fonts";
+import { DemoModeBadge } from "@/components/demo/DemoModeBadge";
 import { isActiveRoute, isPlainLeftClick } from "@/lib/navigation";
 
 const tabs = [
@@ -125,6 +126,7 @@ export default function Navbar() {
         </nav>
 
         <div className="flex shrink-0 items-center gap-0.5 sm:gap-1">
+          <DemoModeBadge />
           <Show when="signed-out">
             <SignInButton mode="modal">
               <button

@@ -7,6 +7,7 @@ import {
   useRef,
   useState,
   useTransition,
+  useSyncExternalStore,
   type ReactNode,
 } from "react";
 import { useParams, useRouter } from "next/navigation";
@@ -29,7 +30,30 @@ import {
   deleteConversationAction,
   listConversationsAction,
 } from "@/lib/assistant/actions";
+import {
+  createDemoConversation,
+  deleteDemoConversation,
+  ensureDemoConversations,
+  listDemoConversations,
+} from "@/lib/demo/conversationStore";
+import {
+  getDemoModeClient,
+  getDemoModeServerSnapshot,
+  subscribeDemoMode,
+} from "@/lib/demo/mode";
 import { spaceGrotesk } from "@/app/ui/fonts";
+
+function subscribeAlways() {
+  return () => {};
+}
+
+function getClientHydrated() {
+  return true;
+}
+
+function getServerHydrated() {
+  return false;
+}
 
 type AssistantShellProps = {
   initialConversations: ConversationSummary[];
@@ -43,6 +67,11 @@ export function AssistantShell({
   const router = useRouter();
   const params = useParams<{ conversationId: string }>();
   const activeConversationId = params.conversationId;
+  const isDemo = useSyncExternalStore(
+    subscribeDemoMode,
+    getDemoModeClient,
+    getDemoModeServerSnapshot,
+  );
 
   const [isPending, startTransition] = useTransition();
   const [conversations, setConversations] =
@@ -77,9 +106,12 @@ export function AssistantShell({
   }, [conversations]);
 
   // Adopt fresh server-provided conversations when the prop reference changes.
+  // Demo mode keeps the localStorage-backed list instead.
   if (initialConversations !== prevInitialConversations) {
     setPrevInitialConversations(initialConversations);
-    setConversations(initialConversations);
+    if (!isDemo) {
+      setConversations(initialConversations);
+    }
   }
 
   // Drop optimistic titles once the real title arrives from the server.
@@ -117,6 +149,40 @@ export function AssistantShell({
     visiblePendingConversationId,
   });
 
+  const hydrated = useSyncExternalStore(
+    subscribeAlways,
+    getClientHydrated,
+    getServerHydrated,
+  );
+  const [demoSynced, setDemoSynced] = useState(false);
+
+  // Bootstrap demo conversations from localStorage during render (not in an
+  // effect) so we stay compatible with react-hooks/set-state-in-effect.
+  if (isDemo && hydrated && !demoSynced) {
+    setDemoSynced(true);
+    setConversations(ensureDemoConversations());
+  }
+  if ((!isDemo || !hydrated) && demoSynced) {
+    setDemoSynced(false);
+    if (!isDemo) {
+      setConversations(initialConversations);
+    }
+  }
+
+  useEffect(() => {
+    if (!isDemo || !hydrated || !activeConversationId) {
+      return;
+    }
+
+    const list = listDemoConversations();
+    if (
+      list.length > 0 &&
+      !list.some((item) => item.id === activeConversationId)
+    ) {
+      router.replace(`/assistant/${list[0].id}`);
+    }
+  }, [isDemo, hydrated, activeConversationId, router]);
+
   const requestSidebarRefresh = useCallback(() => {
     refreshCleanupRef.current?.();
 
@@ -132,7 +198,9 @@ export function AssistantShell({
         return;
       }
 
-      const fresh = await listConversationsAction();
+      const fresh = isDemo
+        ? listDemoConversations()
+        : await listConversationsAction();
       if (cancelled) {
         return;
       }
@@ -153,7 +221,7 @@ export function AssistantShell({
       cancelled = true;
       cleanup();
     };
-  }, [activeConversationId]);
+  }, [activeConversationId, isDemo]);
 
   const setOptimisticTitle = useCallback(
     (conversationId: string, title: string) => {
@@ -204,6 +272,14 @@ export function AssistantShell({
     }
 
     startTransition(async () => {
+      if (isDemo) {
+        const conversation = createDemoConversation();
+        setConversations(listDemoConversations());
+        setPendingConversationId(conversation.id);
+        router.push(`/assistant/${conversation.id}`);
+        return;
+      }
+
       const newId = await createConversationAction();
       setPendingConversationId(newId);
       router.push(`/assistant/${newId}`);
@@ -229,6 +305,16 @@ export function AssistantShell({
     setDeletingConversationId(conversationId);
     startTransition(async () => {
       try {
+        if (isDemo) {
+          const nextId = deleteDemoConversation(conversationId);
+          setConversations(listDemoConversations());
+          if (conversationId === activeConversationId) {
+            setPendingConversationId(nextId);
+            router.push(`/assistant/${nextId}`);
+          }
+          return;
+        }
+
         const nextId = await deleteConversationAction(conversationId);
 
         if (conversationId === activeConversationId && nextId) {

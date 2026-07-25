@@ -1,3 +1,6 @@
+import { getDemoModeClient } from "@/lib/demo/mode";
+import { routeDemoBackendRequest } from "@/lib/demo/backendRouter";
+
 export type ClerkTokenProvider = () => Promise<string | null>;
 
 export type FetchLike = (
@@ -11,6 +14,14 @@ export async function authenticatedBackendFetch(
   getToken: ClerkTokenProvider,
   fetchImpl: FetchLike = fetch,
 ): Promise<Response> {
+  // Demo mode short-circuits before Clerk token or network I/O.
+  if (getDemoModeClient()) {
+    const demoResponse = await routeDemoBackendRequest(input, init);
+    if (demoResponse) {
+      return demoResponse;
+    }
+  }
+
   const token = await getToken();
 
   if (!token) {
