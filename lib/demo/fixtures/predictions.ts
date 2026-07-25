@@ -8,8 +8,8 @@ function addHoursNaive(iso: string, hours: number): string {
   );
   if (!match) {
     const date = new Date();
-    date.setHours(date.getHours() + hours);
-    return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}:00`;
+    date.setHours(date.getHours() + hours, 0, 0, 0);
+    return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:00:00`;
   }
 
   const date = new Date(
@@ -17,11 +17,11 @@ function addHoursNaive(iso: string, hours: number): string {
     Number(match[2]) - 1,
     Number(match[3]),
     Number(match[4]),
-    Number(match[5]),
-    Number(match[6]),
+    0,
+    0,
   );
   date.setHours(date.getHours() + hours);
-  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}:00`;
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:00:00`;
 }
 
 function scoreForHour(hour: number): { score: number; level: string } {
@@ -52,8 +52,11 @@ export function demoCurrentPredictionResponse(targetTime?: string) {
 }
 
 export function demoForecastResponse(startTime: string, hours = 6) {
+  // Future hourly buckets only. Activity prepends a live "now" point, and the
+  // map shows current busyness separately — starting at +0h duplicated the
+  // current hour label (e.g. two "7 AM" bars).
   const forecast = Array.from({ length: hours }, (_, index) => {
-    const timestamp = addHoursNaive(startTime, index);
+    const timestamp = addHoursNaive(startTime, index + 1);
     const hour = Number(timestamp.slice(11, 13));
     const { score, level } = scoreForHour(hour);
     return {

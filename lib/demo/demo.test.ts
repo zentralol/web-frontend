@@ -95,12 +95,22 @@ describe("routeDemoBackendRequest", () => {
 
   it("returns forecast fixtures from query params", async () => {
     const response = await routeDemoBackendRequest(
-      "http://localhost:3000/api/v1/predictions/forecast?lat=40.75&lng=-73.99&startTime=2026-07-24T12:00:00&endTime=2026-07-24T18:00:00&limit=6",
+      "http://localhost:3000/api/v1/predictions/forecast?lat=40.75&lng=-73.99&startTime=2026-07-24T12:33:00&endTime=2026-07-24T18:00:00&limit=6",
     );
 
     expect(response).not.toBeNull();
     const payload = await response!.json();
     expect(payload.data.forecast).toHaveLength(6);
+    // Future buckets only (start at +1h), floored to the hour — avoids a
+    // duplicate current-hour bar when Activity prepends "now".
+    expect(payload.data.forecast.map((p: { timestamp: string }) => p.timestamp)).toEqual([
+      "2026-07-24T13:00:00",
+      "2026-07-24T14:00:00",
+      "2026-07-24T15:00:00",
+      "2026-07-24T16:00:00",
+      "2026-07-24T17:00:00",
+      "2026-07-24T18:00:00",
+    ]);
     for (const point of payload.data.forecast) {
       expect(point.busynessScore).toBeGreaterThanOrEqual(1);
       expect(point.busynessScore).toBeLessThanOrEqual(100);
