@@ -55,7 +55,7 @@ export function CrowdForecastSection({
         <div className="mt-6 rounded-xl border border-dashed border-white/15 bg-white/[0.02] px-5 py-8 text-center">
           <Navigation className="mx-auto h-5 w-5 text-accent/70" aria-hidden />
           <p className="mt-3 text-sm text-white/55">
-            Enable location to see an 8-hour crowd forecast for where you are.
+            Enable location to see a crowd forecast for where you are.
           </p>
           <button
             type="button"
