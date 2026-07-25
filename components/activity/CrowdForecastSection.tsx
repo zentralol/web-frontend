@@ -4,7 +4,6 @@ import { useState } from "react";
 import { Loader2, Navigation, TrendingUp } from "lucide-react";
 import { spaceGrotesk } from "@/app/ui/fonts";
 import type { CrowdForecastResult } from "@/lib/activity/fetchCrowdForecast";
-import { FORECAST_HOURS } from "@/lib/activity/fetchCrowdForecast";
 import { formatBusynessLevel } from "@/lib/activity/busynessDisplay";
 import { ForecastTimeline } from "@/components/shared/ForecastTimeline";
 
@@ -38,7 +37,7 @@ export function CrowdForecastSection({
           <h2
             className={`${spaceGrotesk.className} mt-2 text-lg font-light text-white`}
           >
-            Your location · next {FORECAST_HOURS}h
+            Your location
           </h2>
         </div>
         {result.current && state === "ready" && (
