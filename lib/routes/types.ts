@@ -37,11 +37,11 @@ export type ComputeRoutesError = {
 export const DEFAULT_ORIGIN: RouteLocation = {
   lat: 40.748,
   lng: -74.0048,
-  label: "The High Line, 10th Ave (mock data)",
+  label: "The High Line, 10th Ave",
 };
 
 export const DEFAULT_DESTINATION: RouteLocation = {
   lat: 40.7308,
   lng: -73.9973,
-  label: "Washington Square Park (mock data)",
+  label: "Washington Square Park",
 };
