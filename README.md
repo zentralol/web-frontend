@@ -205,18 +205,6 @@ web-frontend/
 
 ## 🔗 External Integrations
 
-### 🛰️ Express backend
-
-Everything below sits under `/api/v1` on `NEXT_PUBLIC_BACKEND_API_BASE_URL` and carries Clerk Bearer auth from the browser:
-
-| Backend path | Used for |
-|--------------|----------|
-| `POST /predictions` | Current busyness at a lat/lng |
-| `GET /predictions/forecast` | Hourly / windowed crowd forecast |
-| `POST /recommendations` | Quieter nearby areas |
-| `POST /recommendations/quiet-times` | Quieter visit windows for a place |
-| `POST /chat/stream` | Assistant SSE stream |
-
 ### 🗄️ Supabase
 
 Server-side access uses `NEXT_PUBLIC_SUPABASE_URL` + `SUPABASE_SERVICE_ROLE_KEY`.

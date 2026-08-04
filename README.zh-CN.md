@@ -205,18 +205,6 @@ web-frontend/
 
 ## 🔗 外部集成
 
-### 🛰️ Express 后端
-
-下列路径均位于 `NEXT_PUBLIC_BACKEND_API_BASE_URL` 的 `/api/v1` 之下，并由浏览器携带 Clerk Bearer：
-
-| 后端路径 | 用途 |
-|----------|------|
-| `POST /predictions` | 某 lat/lng 的当前繁忙度 |
-| `GET /predictions/forecast` | 分时 / 分窗口人群预测 |
-| `POST /recommendations` | 附近更安静区域 |
-| `POST /recommendations/quiet-times` | 某地点的更安静时段 |
-| `POST /chat/stream` | 助手 SSE 流 |
-
 ### 🗄️ Supabase
 
 服务端使用 `NEXT_PUBLIC_SUPABASE_URL` + `SUPABASE_SERVICE_ROLE_KEY`。
