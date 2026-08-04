@@ -1,24 +1,42 @@
+<div align="center">
+
+<img src="public/zentra-logo.png" alt="Zentra Logo" width="128" />
+
 # 🚀 Zentra Web Frontend
+
+[![Next.js](https://img.shields.io/badge/Next.js-16.2-000000.svg)](https://nextjs.org/)
+[![React](https://img.shields.io/badge/React-19.2-61DAFB.svg)](https://react.dev/)
+[![TypeScript](https://img.shields.io/badge/TypeScript-5-3178C6.svg)](https://www.typescriptlang.org/)
+[![Tailwind CSS](https://img.shields.io/badge/Tailwind_CSS-4-06B6D4.svg)](https://tailwindcss.com/)
+[![Clerk](https://img.shields.io/badge/Clerk-Auth-6C47FF.svg)](https://clerk.com/)
+[![Supabase](https://img.shields.io/badge/Supabase-Postgres-3ECF8E.svg)](https://supabase.com/)
+[![Google Maps](https://img.shields.io/badge/Google_Maps-Platform-4285F4.svg)](https://developers.google.com/maps)
+[![Vitest](https://img.shields.io/badge/Vitest-4-6E9F18.svg)](https://vitest.dev/)
+
+**Crowd-Aware Travel Planning for Manhattan**
 
 **English** | [简体中文](./README.zh-CN.md)
 
-**Zentra Web Frontend** is the Next.js web client for Zentra — personalized travel planning for Manhattan. Users set pace, interests, accessibility and crowd preferences, then explore a crowd-aware map, compare routes, chat with an AI assistant, and review activity and saved trips.
+</div>
+
+---
+
+**Zentra Web Frontend** is the Next.js web client for Zentra — personalized, crowd-aware travel planning for Manhattan. 🗽 Tell it your pace, interests, budget, accessibility needs, and how much of a crowd you can stand; it gives you back a live crowd map, side-by-side routes, and an AI assistant that actually knows when the High Line is packed. ✨
 
 ---
 
 ## 📋 Table of Contents
 
-- [🔎 Overview](#-overview)
-- [🧰 Tech Stack](#-tech-stack)
 - [✨ Features](#-features)
-- [🧭 App Routes](#-app-routes)
-- [🔗 External Integrations](#-external-integrations)
-- [📁 Project Structure](#-project-structure)
+- [🔎 How It Works](#-how-it-works)
+- [🧰 Tech Stack](#-tech-stack)
 - [🚀 Getting Started](#-getting-started)
+  - [🧩 Prerequisites](#-prerequisites)
   - [🔧 Installation](#-installation)
   - [⚙️ Configuration](#️-configuration)
-  - [🧩 Prerequisites](#-prerequisites)
 - [💻 Usage](#-usage)
+- [📁 Project Structure](#-project-structure)
+- [🔗 External Integrations](#-external-integrations)
 - [🧬 Testing](#-testing)
 - [🤝 Contributing](#-contributing)
 - [📝 License](#-license)
@@ -26,15 +44,31 @@
 
 ---
 
-## 🔎 Overview
+## ✨ Features
 
-This repository is the **web frontend** (`zentralol/web-frontend`). In the running app:
+- **🗺️ Crowd-aware map** (`/map`) — Browse attractions with search, category groups, and live busyness badges. Toggle an H3 crowd heatmap covering "Now" plus up to eight Manhattan-local hours, and sort by recommended, near me, A–Z, or quiet areas.
+- **🤫 Quiet-time intelligence** — Every location panel shows current busyness, a next-6-hours forecast, quieter windows across 24 hours, and quieter nearby areas worth walking to instead.
+- **🚶 Multi-mode route planning** (`/routes`) — Pick origin and destination by Places autocomplete, map click, or current location, then compare walking, transit, and cycling options on a polyline map. **Take me there** hands off straight from the map.
+- **💬 Streaming AI assistant** (`/assistant`) — A real chat thread with Markdown replies, thinking and tool-status UI, place cards, and suggested prompts. Hit **Save trip** and the itinerary lands on your Activity page.
+- **📊 Activity dashboard** (`/activity`) — An eight-window crowd forecast for where you are, the five busiest and quietest scenic landmarks, and every trip you've saved (editable title, note, and target time).
+- **🎯 Five-step onboarding** — Travel pace, interests, budget range, crowd tolerance, and mobility / dietary / inclusion needs — all editable later from Settings.
+- **❤️ Favorites and settings** (`/settings`) — Heart any attraction, Google place, or raw coordinate from the map; reopen saved places on the map or in a route; leave notes.
+- **📬 Automatic welcome email** — A Clerk `user.created` webhook fires a welcome email through MXroute, with idempotent delivery tracking.
+- **📱 Smart app banner** — On non-desktop viewports, an optional (and dismissible) App Store / Play Store banner.
 
-- The browser talks to **this Next.js app** for pages, Clerk auth, Supabase-backed data (via server routes/actions), and Google Maps / Routes.
-- Protected crowd prediction, quieter-area recommendations, and AI chat stream go to the **Express backend** at `NEXT_PUBLIC_BACKEND_API_BASE_URL` under the `/api/v1` prefix, with the user’s Clerk session token as `Authorization: Bearer …`.
-- Chat is streamed through the backend gateway (`POST /api/v1/chat/stream`), which forwards to the internal AI agent service. The frontend does not call the agent with a separate secret.
+---
 
-Crowd prediction coverage in the UI is Manhattan-focused; out-of-coverage responses surface as “Predictions are currently available for Manhattan only.”
+## 🔎 How It Works
+
+This repository is the **web frontend** (`zentralol/web-frontend`). At runtime, three things are talking to each other: 🔀
+
+- **This Next.js app** serves pages, Clerk auth, Supabase-backed data (through server routes and actions), and Google Maps / Routes.
+- **The Express backend** at `NEXT_PUBLIC_BACKEND_API_BASE_URL` handles crowd predictions, quieter-area recommendations, and the AI chat stream — all under the `/api/v1` prefix, authenticated with the user's Clerk session token as `Authorization: Bearer …`.
+- **The AI agent service** is reached only through the backend gateway (`POST /api/v1/chat/stream`). The frontend never holds an agent secret. 🔒
+
+Access is gated in two layers by the Clerk middleware in `proxy.ts`: `/`, `/sign-in`, `/sign-up`, and `/api/webhooks/clerk` are public; everything else needs a session, and users who haven't finished onboarding get routed to `/onboarding` first.
+
+> 📍 **Coverage note:** crowd prediction is Manhattan-only. Anything outside surfaces as *"Predictions are currently available for Manhattan only."*
 
 ---
 
@@ -55,158 +89,15 @@ Crowd prediction coverage in the UI is Manhattan-focused; out-of-coverage respon
 
 ---
 
-## ✨ Features
-
-### Auth and onboarding
-
-- Clerk sign-in / sign-up pages and navbar modal buttons; signed-in users get a `UserButton`.
-- Clerk middleware in `proxy.ts`: public routes are `/`, `/sign-in`, `/sign-up`, and `/api/webhooks/clerk`. Other routes require a session (redirect to `/sign-in?redirect_url=…`).
-- Incomplete onboarding redirects to `/onboarding`. Completed users visiting `/onboarding` go to `/welcome-back`.
-- Five-step onboarding wizard stores preferences in Supabase `onboarding_preferences`:
-  - Travel pace (relaxed / moderate / packed)
-  - Interests (food, nature, history, art, nightlife, shopping, architecture, local culture)
-  - Budget range
-  - Crowd tolerance
-  - Mobility, dietary, and inclusion needs
-
-### Home
-
-- Signed out: landing copy and CTAs to `/assistant` and `/map`.
-- Signed in and onboarded: personalized welcome, attraction search → `/map?q=…`, up to three interest-matched recommendations → `/map?id=…`, links to map and settings.
-
-### Map (`/map`)
-
-- Browse attractions (search, category groups, crowd badges).
-- Sort modes: recommended, near me, A–Z, quiet areas.
-- Google Map with category-colored markers, locate-me, and click-to-select.
-- Crowd heatmap toggle (preference in `localStorage`): H3 polygons from `/api/map/heatmap`, time options “Now” plus up to eight Manhattan-local hours.
-- Quieter nearby areas via backend `POST /api/v1/recommendations`.
-- Location panel: current busyness and next-6-hours forecast (`/api/v1/predictions` and `/predictions/forecast`), quieter times over 24 hours (`/api/v1/recommendations/quiet-times`), save to favorites, **Take me there** → `/routes?destLat&destLng&destLabel`.
-- Deep links: `?q=`, `?id=`, `?lat&lng&name&address&placeId`.
-
-### Routes (`/routes`)
-
-- Origin and destination via Places autocomplete, map pick, or current location.
-- Plan walk / transit / bicycle options through `POST /api/routes/compute` (Google Routes API).
-- Polyline map, mode switcher, share when supported.
-- Deep link: `/routes?destLat&destLng&destLabel` (best-effort origin = current location).
-- Default origin/destination labels in code are marked as mock data (High Line → Washington Square Park).
-
-### Assistant (`/assistant`)
-
-- Entry creates or opens the newest conversation at `/assistant/{conversationId}`.
-- Sidebar: list conversations, new chat, soft-delete (with empty/last-chat rules), optimistic titles.
-- Streaming chat to backend `POST /api/v1/chat/stream` with `clientType: "web"` and optional lat/lng.
-- Markdown replies, thinking / tool status UI, place cards, suggested prompts.
-- **Save trip** persists place-card payloads to `saved_itineraries` (visible on Activity).
-- Conversation history in Supabase `conversations` / `messages`; `DEEPSEEK_MODEL` is stored as metadata on create (display only; the agent owns the model call).
-
-### Activity (`/activity`)
-
-- Crowd forecast (eight windows) for the user’s coordinates via backend predictions.
-- Top five scenic landmarks from Supabase `attraction_predictions` (busiest / quietest), with Take me there links.
-- Saved trips: edit title, note, target time; delete; open places on routes.
-
-### Settings and favorites
-
-- Saved places from `favorite_places` (notes, open on map / routes, remove).
-- Heart / save from the map (attraction, Google place, or coordinate identity).
-- Help & feedback: `mailto:hi@zentra.lol`.
-- Edit the same travel preferences as onboarding.
-
-### Welcome email
-
-- Clerk webhook `POST /api/webhooks/clerk` on `user.created` sends a welcome email via MXroute SMTP.
-- Delivery state tracked in `welcome_email_deliveries` (idempotent reserve / submit).
-
-### Smart app banner
-
-- On non-desktop viewports, optional App Store / Play Store banner when `NEXT_PUBLIC_IOS_APP_URL` / `NEXT_PUBLIC_ANDROID_APP_URL` are set; dismiss stored in `localStorage`.
-
----
-
-## 🧭 App Routes
-
-| Path | Access | Purpose |
-|------|--------|---------|
-| `/` | Public | Landing or personalized home |
-| `/sign-in`, `/sign-up` | Public | Clerk authentication |
-| `/onboarding` | Signed in | Preference wizard |
-| `/welcome-back` | Signed in | Post-onboarding landing |
-| `/map` | Signed in + onboarded | Crowd-aware map workspace |
-| `/routes` | Signed in + onboarded | Multi-mode route planner |
-| `/assistant` | Signed in + onboarded | Redirect to a conversation |
-| `/assistant/[conversationId]` | Signed in + onboarded | AI chat thread |
-| `/activity` | Signed in + onboarded | Forecast, landmarks, saved trips |
-| `/settings` | Signed in + onboarded | Places, feedback, preferences |
-
-Navbar tabs: Map, Routes, Assistant, Activity, Settings.
-
----
-
-## 🔗 External Integrations
-
-### Express backend (`NEXT_PUBLIC_BACKEND_API_BASE_URL`)
-
-All paths below are under `/api/v1` and use Clerk Bearer auth from the browser:
-
-| Backend path | Used for |
-|--------------|----------|
-| `POST /predictions` | Current busyness at a lat/lng |
-| `GET /predictions/forecast` | Hourly / windowed crowd forecast |
-| `POST /recommendations` | Quieter nearby areas |
-| `POST /recommendations/quiet-times` | Quieter visit windows for a place |
-| `POST /chat/stream` | Assistant SSE stream |
-
-### Supabase
-
-Server-side access uses `NEXT_PUBLIC_SUPABASE_URL` + `SUPABASE_SERVICE_ROLE_KEY`.
-
-| Table | Usage |
-|-------|--------|
-| `onboarding_preferences` | Onboarding / settings / middleware gate |
-| `attractions` | Catalog for map, home, activity |
-| `attraction_predictions` | Crowd badges and top landmarks |
-| `heatmap_predictions` | Map heatmap |
-| `conversations`, `messages` | Assistant history |
-| `favorite_places` | Saved places |
-| `saved_itineraries` | Trips saved from the assistant |
-| `welcome_email_deliveries` | Welcome email delivery ledger |
-
-### Google Maps
-
-- Map UI and Places / Geocoding for place selection and reverse geocoding.
-- Routes API for walk / transit / bicycle (`NEXT_PUBLIC_GOOGLE_MAPS_API_KEY`; enable Routes API and Places API New in Google Cloud).
-
-### Clerk
-
-- Session auth for pages and backend calls; webhook signing for welcome email (`CLERK_WEBHOOK_SIGNING_SECRET`).
-
-### MXroute
-
-- Welcome email SMTP API (`MXROUTE_SERVER`, `MXROUTE_USERNAME`, `MXROUTE_PASSWORD`, `MXROUTE_FROM`).
-
----
-
-## 📁 Project Structure
-
-```
-web-frontend/
-├── app/                 # App Router pages, layouts, loading UI, API routes
-├── components/          # UI: map, routes, assistant, activity, onboarding, settings, …
-├── lib/                 # Domain logic: backend client, map, assistant, attractions, …
-├── supabase/            # Supabase-related project files
-├── public/              # Static assets
-├── proxy.ts             # Clerk middleware + onboarding redirects
-├── vitest.config.ts
-├── package.json
-├── README.md
-└── README.zh-CN.md
-```
-
----
-
 ## 🚀 Getting Started
+
+### 🧩 Prerequisites
+
+The app boots without these, but map busyness, quieter recommendations, and the assistant need them: ⚠️
+
+- The **Zentra Express backend** running locally, or `NEXT_PUBLIC_BACKEND_API_BASE_URL` pointed at a reachable API.
+- A **Supabase** project with the tables and data listed under [External Integrations](#-external-integrations).
+- **Google Cloud** credentials with **Routes API** and **Places API (New)** enabled.
 
 ### 🔧 Installation
 
@@ -231,7 +122,7 @@ web-frontend/
 cp .env.example .env
 ```
 
-Fill in values (do not commit secrets):
+Then fill in the values below — and never commit secrets. 🙈
 
 | Variable | Purpose |
 |----------|---------|
@@ -252,21 +143,13 @@ Fill in values (do not commit secrets):
 | `NEXT_PUBLIC_IOS_APP_URL` / `NEXT_PUBLIC_ANDROID_APP_URL` | Smart app banner store links |
 | `DEEPSEEK_MODEL` | Model label stored on new conversations (default `deepseek-v4-flash`) |
 
-Point Clerk’s `user.created` webhook at your deployed `/api/webhooks/clerk` when testing welcome email.
-
-### 🧩 Prerequisites
-
-For map busyness, quieter recommendations, and the assistant:
-
-- Run the Zentra Express backend (or set `NEXT_PUBLIC_BACKEND_API_BASE_URL` to a reachable API).
-- Supabase tables and data used by the app must be available (attractions, predictions, etc.).
-- Google Cloud credentials with Routes API and Places API (New) enabled for routing and place search.
+To test the welcome email, point Clerk's `user.created` webhook at your deployed `/api/webhooks/clerk`. 📮
 
 ---
 
 ## 💻 Usage
 
-Start the development server (Next.js default port **3000** — use a different backend origin if both run locally on the same port):
+Start the dev server — Next.js defaults to port **3000**, so give the backend a different origin if both run locally: 🏃
 
 ```bash
 pnpm dev
@@ -274,72 +157,129 @@ pnpm dev
 
 Open [http://localhost:3000](http://localhost:3000).
 
-Production-like local run:
+For a production-like local run:
 
 ```bash
 pnpm build
 pnpm start
 ```
 
-Also available: `pnpm lint`.
+Linting: `pnpm lint`.
 
-### Deep links
+### 🧭 App Routes
 
-| Pattern | Effect |
-|---------|--------|
-| `/map?q=…` | Prefill attraction search |
-| `/map?id={attractionId}` | Open that attraction |
-| `/map?lat&lng&name&address&placeId` | Open an arbitrary location |
-| `/routes?destLat&destLng&destLabel` | Prefill destination |
-| `/assistant/{conversationId}` | Open a chat thread |
-| `/sign-in?redirect_url=…` | Return URL after sign-in |
+| Path | Access | Purpose |
+|------|--------|---------|
+| `/` | Public | Landing or personalized home |
+| `/sign-in`, `/sign-up` | Public | Clerk authentication |
+| `/onboarding` | Signed in | Preference wizard |
+| `/welcome-back` | Signed in | Post-onboarding landing |
+| `/map` | Signed in + onboarded | Crowd-aware map workspace |
+| `/routes` | Signed in + onboarded | Multi-mode route planner |
+| `/assistant` | Signed in + onboarded | Redirect to a conversation |
+| `/assistant/[conversationId]` | Signed in + onboarded | AI chat thread |
+| `/activity` | Signed in + onboarded | Forecast, landmarks, saved trips |
+| `/settings` | Signed in + onboarded | Places, feedback, preferences |
+
+Navbar tabs: **Map**, **Routes**, **Assistant**, **Activity**, **Settings**.
+
+---
+
+## 📁 Project Structure
+
+```
+web-frontend/
+├── app/                 # App Router pages, layouts, loading UI, API routes
+├── components/          # UI: map, routes, assistant, activity, onboarding, settings, …
+├── lib/                 # Domain logic: backend client, map, assistant, attractions, …
+├── supabase/            # Supabase-related project files
+├── public/              # Static assets
+├── proxy.ts             # Clerk middleware + onboarding redirects
+├── vitest.config.ts
+├── package.json
+├── README.md
+└── README.zh-CN.md
+```
+
+---
+
+## 🔗 External Integrations
+
+### 🗄️ Supabase
+
+Server-side access uses `NEXT_PUBLIC_SUPABASE_URL` + `SUPABASE_SERVICE_ROLE_KEY`.
+
+| Table | Usage |
+|-------|-------|
+| `onboarding_preferences` | Onboarding / settings / middleware gate |
+| `attractions` | Catalog for map, home, activity |
+| `attraction_predictions` | Crowd badges and top landmarks |
+| `heatmap_predictions` | Map heatmap |
+| `conversations`, `messages` | Assistant history |
+| `favorite_places` | Saved places |
+| `saved_itineraries` | Trips saved from the assistant |
+| `welcome_email_deliveries` | Welcome email delivery ledger |
+
+### 🌍 Google Maps, Clerk, and MXroute
+
+- **Google Maps** — Map UI plus Places / Geocoding for place selection and reverse geocoding; Routes API powers walk / transit / bicycle planning via `POST /api/routes/compute`.
+- **Clerk** — Session auth for pages and backend calls, plus webhook signing for the welcome email.
+- **MXroute** — SMTP API behind the welcome email.
 
 ---
 
 ## 🧬 Testing
 
-Tests use Vitest:
+Tests run on Vitest: 🧪
 
 ```bash
-pnpm test
-pnpm test:watch
-pnpm test:coverage
+pnpm test           # single run
+pnpm test:watch     # watch mode
+pnpm test:coverage  # with coverage
 ```
 
-Config: `vitest.config.ts` (Node by default; some component tests use jsdom). Coverage includes map/heatmap, favorites, recommendations, assistant stream/transport, itineraries, webhook/email, and related units.
+Config lives in `vitest.config.ts` (Node by default; some component tests use jsdom). Coverage spans map/heatmap, favorites, recommendations, assistant stream/transport, itineraries, webhook/email, and related units.
 
 ---
 
 ## 🤝 Contributing
 
+Contributions are welcome! 🎉
+
 1. Fork the repository.
+
 2. Create a branch:
    ```bash
    git checkout -b feature/your-feature-name
    ```
+
 3. Commit your changes:
    ```bash
    git commit -m "Add your awesome feature"
    ```
+
 4. Push the branch:
    ```bash
    git push origin feature/your-feature-name
    ```
-5. Open a pull request against `zentralol/web-frontend`.
+
+5. Open a pull request against `zentralol/web-frontend`. 🚀
 
 ---
 
 ## 📝 License
 
-This project is **private**. All rights reserved.
+This project is **private**. All rights reserved. 🔐
 
 ---
 
 ## 📧 Contact
 
-- **GitHub Issues**: [Open an Issue](https://github.com/zentralol/web-frontend/issues)
-- **Email**: [hi@zentra.lol](mailto:hi@zentra.lol) (Help & feedback in Settings)
+Questions or feedback? Reach out:
+
+- **GitHub Issues**: [Open an Issue](https://github.com/zentralol/web-frontend/issues) 🐛
+- **Email**: [hi@zentra.lol](mailto:hi@zentra.lol) 📩 (also available as *Help & feedback* in Settings)
 
 ---
 
-Made with ❤️ by the Zentra team. Happy coding!
+Made with ❤️ by the Zentra team. Happy coding! 🎉
