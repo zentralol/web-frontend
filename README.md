@@ -183,17 +183,6 @@ Linting: `pnpm lint`.
 
 Navbar tabs: **Map**, **Routes**, **Assistant**, **Activity**, **Settings**.
 
-### 🔗 Deep Links
-
-| Pattern | Effect |
-|---------|--------|
-| `/map?q=…` | Prefill attraction search |
-| `/map?id={attractionId}` | Open that attraction |
-| `/map?lat&lng&name&address&placeId` | Open an arbitrary location |
-| `/routes?destLat&destLng&destLabel` | Prefill destination (origin = current location, best effort) |
-| `/assistant/{conversationId}` | Open a chat thread |
-| `/sign-in?redirect_url=…` | Return URL after sign-in |
-
 ---
 
 ## 📁 Project Structure

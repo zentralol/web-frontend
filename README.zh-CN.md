@@ -183,17 +183,6 @@ pnpm start
 
 导航标签：**Map**、**Routes**、**Assistant**、**Activity**、**Settings**。
 
-### 🔗 Deep link
-
-| 模式 | 效果 |
-|------|------|
-| `/map?q=…` | 预填景点搜索 |
-| `/map?id={attractionId}` | 打开指定景点 |
-| `/map?lat&lng&name&address&placeId` | 打开任意位置 |
-| `/routes?destLat&destLng&destLabel` | 预填终点（起点尽量取当前位置） |
-| `/assistant/{conversationId}` | 打开对话 |
-| `/sign-in?redirect_url=…` | 登录后回跳 |
-
 ---
 
 ## 📁 项目结构
